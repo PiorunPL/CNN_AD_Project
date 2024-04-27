@@ -30,6 +30,36 @@ for (i,n) in enumerate(graph)
     println("$i. $n")
 end
 
-forward!(graph)
-backward!(graph)
+# forward!(graph)
+# backward!(graph)
+using ProgressMeter 
 
+@showprogress for i in 1:10000
+    tmpX = rand(Int) % 10
+    tmpY = rand(Int) % 10
+    tmpZ = tmpX + tmpY
+
+    x.output = [tmpX, tmpY]
+    y.output = [tmpZ]
+
+    currentloss = forward!(graph)
+    backward!(graph)
+
+    Wh.output -= 0.01Wh.gradient
+    Wo.output -= 0.01Wo.gradient
+    push!(losses, first(currentloss))
+    reset!(graph)
+end
+
+
+using Plots, KittyTerminalImages
+pushKittyDisplay!()
+
+# gr()
+plot(1:length(losses), losses, seriestype=:scatter) |> display
+
+#using PyPlot
+#semilogy(losses, ".")
+#xlabel("epoch")
+#ylabel("loss")
+#grid()

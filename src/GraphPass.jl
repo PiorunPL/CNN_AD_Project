@@ -2,7 +2,7 @@
 function forward!(order::Vector)
     for node in order
         compute!(node)
-        reset!(node) # TODO: Prawdopodobnie trzeba będzie usunąć reset stąd i wydzielić na niego osobną metodę
+        reset_forward!(node) # TODO: Prawdopodobnie trzeba będzie usunąć reset stąd i wydzielić na niego osobną metodę
     end
     return last(order).output
 end
@@ -24,25 +24,43 @@ function backward!(node::Operator)
     inputs = node.inputs
     gradients = backward(node, [input.output for input in inputs]..., node.gradient)
     for (input, gradient) in zip(inputs, gradients)
-        update!(input, gradient)
+        update_graph!(input, gradient)
     end
     return nothing
 end
 
 # Helper methods
+function reset!(order::Vector)
+    for node in order
+        reset!(node)
+    end
+end
+
 reset!(node::Constant) = nothing
 reset!(node::Variable) = node.gradient = nothing
 reset!(node::Operator) = node.gradient = nothing
+
+reset_forward!(node::Constant) = nothing
+reset_forward!(node::Variable) = nothing
+reset_forward!(node::Operator) = node.gradient = nothing
 
 compute!(node::Constant) = nothing
 compute!(node::Variable) = nothing
 compute!(node::Operator) = node.output = forward(node, [input.output for input in node.inputs]...)
 
-update!(node::Constant, gradient) = nothing
-update!(node::GraphNode, gradient) = let
+update_graph!(node::Constant, gradient) = nothing
+update_graph!(node::GraphNode, gradient) = let
     if isnothing(node.gradient)
+#        @info("
+#------------------------------------------------------------------------
+#New Gradient: $(gradient)")
         node.gradient = gradient
     else
+#        @info("
+#------------------------------------------------------------------------
+#NodeName: $(node.name)
+#Node.gradient: $(node.gradient)
+#Gradient: $(gradient)")
         node.gradient .+= gradient
     end
     return nothing
