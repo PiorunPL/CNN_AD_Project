@@ -77,3 +77,70 @@ backward(node::BroadcastedOperator{typeof(^)}, x, y, g) = let
     tuple(Jx .* g, Jy .* g)
 end
 
+############################################################################
+# Needed for Convolution implementation
+############################################################################
+
+# Extend filter to choosen size - not sure if after all that will be needed
+extend(conv_filter::GraphNode, sizes, point) = BroadcastedOperator(extend, conv_filter, x, y, name="extend")
+forward(::BroadcastedOperator{typeof(extend)}, conv_filter, sizes, point) = let
+    channels = length(conv_filter[1,1,:])
+    filter_width = length(conv_filter[:,1,1])
+    filter_height = length(conv_filter[1,:,1])
+    result = zeros(sizes[1],sizes[2], channels)
+    for i in point[1]:(point[1]+filter_width)
+        for j in point[2]:(point[2]+filter_height)
+            for k in 1:channels
+                result[i,j,k] = conv_filter[i-point[1]+1,j-point[2]+1,k]
+            end
+        end
+    end
+    return result
+end
+backward(node::BroadcastedOperator{typeof(extend)}, conv_filter, sizes, point, g) = let
+    tmpResult = g .* node.output
+
+    channels = length(conv_filter[1,1,:])
+    filter_width = length(conv_filter[:,1,1])
+    filter_height = length(conv_filter[1,:,1])
+    
+    result = zeros(filter_width, filter_height, channels) # TODO: Prawdopodobnie można zamienić rozwiązanie na wycięcie wartości z tensora i będzie pewnie lepsze
+    for i in point[1]:(point[1]+filter_width)
+        for j in point[2]:(point[2]+filter_height)
+            for k in 1:channels
+                result[i-point[1]+1,j-point[2]+1,k] = tmpResult[i,j,k]
+            end
+        end
+    end
+    return tuple(result,0,0)
+end
+
+# Convolution
+conv(image::GraphNode, filters::GraphNode) = BroadcastedOperator(conv, image, filters, name="Convolution")
+forward(::BroadcastedOperator{typeof(conv)}, image, filters) = let
+    # filters is an array of filters
+    # image is an entry array
+    filterWidth = length(filters[1][:,1,1])
+    filterHeight = length(filters[1][1,:,1])
+
+    targetWidth = length(image[:,1,1]) - filterWidth + 1
+    targetHeight = length(image[1,:,1]) - filterHeight + 1
+    targetChannels = length(filters)
+    
+    result = zeros(targetWidth, targetHeight, targetChannels)
+    for i in 1:targetChannels
+        filter = filters[i]
+        for j in 1:targetWidth
+            for k in 1:targetHeight
+                result[j,k,i] = sum(image[j:(j+filterWidth-1),k:(k+filterHeight-1),:].*filter)
+            end
+        end
+    end
+    return result
+end
+
+
+
+
+
+
