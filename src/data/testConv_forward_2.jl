@@ -36,9 +36,6 @@ filter2_array[:,:,2] = [5 8;4 3]
 filters = Variable([filter1_array, filter2_array], name="filters")
 image = Variable(image_array, name="image")
 
-# display(filters)
-# display(image)
-
 function net1(image, filters)
     ŷ = conv(image, filters)
     ŷ.name = "ŷ"
@@ -53,20 +50,8 @@ function net2(image, filters, y, n)
     return topological_sort(E)
 end
 
-graph = net1(image, filters)
-#for (i,n) in enumerate(graph)
-#   println("$i. $n")
-#end
-
-result = forward!(graph)
-display(graph)
-display(result)
-
 graph2 = net2(image, filters, y, 18)
 result = forward!(graph2)
-display(graph2)
-display(result)
-resultBackward = backward!(graph2)
+backward!(graph2)
 display("After backward")
 display(graph2)
-display(resultBackward)

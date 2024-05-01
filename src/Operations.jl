@@ -52,11 +52,11 @@ import Base: sum
 sum(x::GraphNode) = BroadcastedOperator(sum, x, name="sum")
 forward(::BroadcastedOperator{typeof(sum)}, x) = return sum(x)
 backward(::BroadcastedOperator{typeof(sum)}, x, g) = let
-    display("--- SUM ---")
-    display("x: $x")
-    display("g: $g")
+    #display("--- SUM ---")
+    #display("x: $x")
+    #display("g: $g")
     𝟏 = ones(size(x))
-    display("𝟏: $𝟏")
+    #display("𝟏: $𝟏")
     tuple(𝟏 .* g)
 end
 
@@ -74,15 +74,15 @@ end
 Base.Broadcast.broadcasted(^, x::GraphNode, y::GraphNode) = BroadcastedOperator(^, x, y, name="^")
 forward(::BroadcastedOperator{typeof(^)}, x, y) = return x .^ y
 backward(node::BroadcastedOperator{typeof(^)}, x, y, g) = let
-    display("--- ^ ---")
+    #display("--- ^ ---")
     𝟏 = ones(length(node.output))
-    display("x: $x")
-    display("y: $y")
-    display("g: $g")
+    #display("x: $x")
+    #display("y: $y")
+    #display("g: $g")
     Jx = y .* x .^ (y .- 1)
-    display("Jx: $Jx")
+    #display("Jx: $Jx")
     Jy = x .^ y .* log.(abs.(x))
-    display("Jy: $Jy")
+    #display("Jy: $Jy")
     tuple(Jx .* g, Jy .* g)
 end
 
