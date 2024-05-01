@@ -40,7 +40,7 @@ backward(::BroadcastedOperator{typeof(+)}, x, y, g) = return tuple(g, g)
 # Division
 Base.Broadcast.broadcasted(/, x::GraphNode, y::GraphNode) = BroadcastedOperator(/, x, y, name="/")
 forward(::BroadcastedOperator{typeof(/)}, x, y) = return x ./ y
-backward(::BroadcastedOperator{typeof(/)}, x, y, g) = let
+backward(node::BroadcastedOperator{typeof(/)}, x, y, g) = let
     𝟏 = ones(length(node.output))
     Jx = diagm(𝟏 ./ y)
     Jy = (-x ./ y .^ 2)
@@ -52,9 +52,12 @@ import Base: sum
 sum(x::GraphNode) = BroadcastedOperator(sum, x, name="sum")
 forward(::BroadcastedOperator{typeof(sum)}, x) = return sum(x)
 backward(::BroadcastedOperator{typeof(sum)}, x, g) = let
-    𝟏 = ones(length(x))
-    J = 𝟏'
-    tuple(J' * g)
+    display("--- SUM ---")
+    display("x: $x")
+    display("g: $g")
+    𝟏 = ones(size(x))
+    display("𝟏: $𝟏")
+    tuple(𝟏 .* g)
 end
 
 # Max
@@ -71,9 +74,15 @@ end
 Base.Broadcast.broadcasted(^, x::GraphNode, y::GraphNode) = BroadcastedOperator(^, x, y, name="^")
 forward(::BroadcastedOperator{typeof(^)}, x, y) = return x .^ y
 backward(node::BroadcastedOperator{typeof(^)}, x, y, g) = let
+    display("--- ^ ---")
     𝟏 = ones(length(node.output))
+    display("x: $x")
+    display("y: $y")
+    display("g: $g")
     Jx = y .* x .^ (y .- 1)
+    display("Jx: $Jx")
     Jy = x .^ y .* log.(abs.(x))
+    display("Jy: $Jy")
     tuple(Jx .* g, Jy .* g)
 end
 
@@ -138,9 +147,54 @@ forward(::BroadcastedOperator{typeof(conv)}, image, filters) = let
     end
     return result
 end
+backward(node::BroadcastedOperator{typeof(conv)}, image, filters, g) = let
+    # Calculating backward of filters
+    filtersResult = [zeros(size(filters[1])) for i in 1:length(filters)]
 
+    filterWidth = length(filters[1][:,1,1])
+    filterHeight = length(filters[1][1,:,1])
+    filterChannels = length(filters[1][1,1,:])
+    numberOfFilters = length(filters)
+    
+    outputWidth = length(node.output[:,1,1])
+    outputHeight = length(node.output[1,:,1])
+    outputChannels = length(node.output[1,1,:])
 
+    for n in 1:numberOfFilters
+        g_layer = g[:,:,n]
+        for i in 1:filterChannels
+            for j in 1:filterWidth
+                for k in 1:filterHeight
+                    filtersResult[n][j,k,i]= sum(image[j:(j+outputWidth - 1),k:(k+outputHeight-1), i].*g_layer)
+                end
+            end
+        end
+    end
 
+    reversedFilters = [filters[i][end:-1:1, end:-1:1, :] for i in 1:length(filters)]
+    g_extended = zeros(2*(filterWidth-1)+outputWidth, 2*(filterHeight-1)+outputHeight, numberOfFilters)
+    g_extended[filterWidth:(filterWidth+outputWidth-1), filterHeight:(filterHeight+outputHeight-1),:] = g
+    
+    inputWidth = length(image[:,1,1])
+    inputHeight = length(image[1,:,1])
 
+    # Prepare refersed filters matrices
+    filtersToCalculate = [Array{Float64,3}(undef,filterWidth, filterHeight, outputChannels) for i in 1:filterChannels]
+    for i in 1:filterChannels
+        for j in 1:outputChannels
+            filtersToCalculate[i][:,:,j] = reversedFilters[j][:,:,i]
+        end
+    end
 
+    inputResult = zeros(size(image))   
+    # Tensors multiplication and addition for each element in image
+    for i in 1:filterChannels
+        for j in 1:inputWidth
+            for k in 1:inputHeight
+                inputResult[j,k,i] = sum(g_extended[j:(j+filterWidth-1), k:(k+filterHeight-1), :].*filtersToCalculate[i])
+            end
+        end
+    end
 
+    return tuple(inputResult, filtersResult)
+end
