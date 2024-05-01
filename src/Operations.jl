@@ -89,41 +89,6 @@ end
 ############################################################################
 # Needed for Convolution implementation
 ############################################################################
-
-# Extend filter to choosen size - not sure if after all that will be needed
-extend(conv_filter::GraphNode, sizes, point) = BroadcastedOperator(extend, conv_filter, x, y, name="extend")
-forward(::BroadcastedOperator{typeof(extend)}, conv_filter, sizes, point) = let
-    channels = length(conv_filter[1,1,:])
-    filter_width = length(conv_filter[:,1,1])
-    filter_height = length(conv_filter[1,:,1])
-    result = zeros(sizes[1],sizes[2], channels)
-    for i in point[1]:(point[1]+filter_width)
-        for j in point[2]:(point[2]+filter_height)
-            for k in 1:channels
-                result[i,j,k] = conv_filter[i-point[1]+1,j-point[2]+1,k]
-            end
-        end
-    end
-    return result
-end
-backward(node::BroadcastedOperator{typeof(extend)}, conv_filter, sizes, point, g) = let
-    tmpResult = g .* node.output
-
-    channels = length(conv_filter[1,1,:])
-    filter_width = length(conv_filter[:,1,1])
-    filter_height = length(conv_filter[1,:,1])
-    
-    result = zeros(filter_width, filter_height, channels) # TODO: Prawdopodobnie można zamienić rozwiązanie na wycięcie wartości z tensora i będzie pewnie lepsze
-    for i in point[1]:(point[1]+filter_width)
-        for j in point[2]:(point[2]+filter_height)
-            for k in 1:channels
-                result[i-point[1]+1,j-point[2]+1,k] = tmpResult[i,j,k]
-            end
-        end
-    end
-    return tuple(result,0,0)
-end
-
 # Convolution
 conv(image::GraphNode, filters::GraphNode) = BroadcastedOperator(conv, image, filters, name="Convolution")
 forward(::BroadcastedOperator{typeof(conv)}, image, filters) = let
@@ -197,4 +162,46 @@ backward(node::BroadcastedOperator{typeof(conv)}, image, filters, g) = let
     end
 
     return tuple(inputResult, filtersResult)
+end
+
+#MaxPool
+maxPool(input::GraphNode, poolSize::GraphNode) = BroadcastedOperator(maxPool, input, poolSize, name="Max Pool")
+forward(node::BroadcastedOperator{typeof(maxPool)}, input, poolSize) = let
+    inputWidth = length(input[:,1,1])
+    inputHeight = length(input[1,:,1])
+    inputChannels = length(input[1,1,:])
+
+    outputWidth = floor(Int, inputWidth/poolSize[1])
+    outputHeight = floor(Int, inputHeight/poolSize[2])
+
+    output = zeros(outputWidth, outputHeight, inputChannels)
+
+    for i in 1:inputChannels
+        for j in 1:outputWidth
+            for k in 1:outputHeight
+                output[j,k,i] = maximum(input[(2*j-1):(2*j-1+poolSize[1]-1),(2*k-1):(2*k-1+poolSize[2]-1), i])
+            end
+        end
+    end
+
+    return output
+end
+backward(node::BroadcastedOperator{typeof(maxPool)}, input, poolSize, g) = let
+    result = zeros(size(input))
+    inputWidth,inputHeight,inputChannels = size(input)
+    
+    output = node.output
+    outputWidth,outputHeight,outputChannels = size(output)
+
+    for i in 1:inputChannels
+        for j in 1:(outputWidth*2)
+            for k in 1:(outputHeight*2)
+                if input[j,k,i] == output[floor(Int,(j-1)/2)+1, floor(Int,(k-1)/2)+1, i]
+                    result[j,k,i] = g[floor(Int,(j-1)/2)+1, floor(Int,(k-1)/2)+1, i]
+                end
+            end
+        end
+    end
+
+    return tuple(result, 0)
 end
