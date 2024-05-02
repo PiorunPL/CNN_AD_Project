@@ -16,11 +16,20 @@ import LinearAlgebra: mul!
 # Multiplication
 *(A::GraphNode, x::GraphNode) = BroadcastedOperator(mul!, A, x, name="mul!")
 forward(::BroadcastedOperator{typeof(mul!)}, A, x) = return A * x
-backward(::BroadcastedOperator{typeof(mul!)}, A, x, g) = tuple(g * x', A' * g)
-
+backward(::BroadcastedOperator{typeof(mul!)}, A, x, g) = let
+    #display("--- Mul ---")
+    #display("W: $(size(A))")
+    #display("input: $(size(x))")
+    #display("g: $(size(g))}")
+    tuple(g * x', A' * g)
+end
 Base.Broadcast.broadcasted(*, x::GraphNode, y::GraphNode) = BroadcastedOperator(*, x, y, name="*")
 forward(::BroadcastedOperator{typeof(*)}, x, y) = return x .* y
 backward(node::BroadcastedOperator{typeof(*)}, x, y, g) = let
+    #display("--- * ---")
+    #display("x: $(size(x))")
+    #display("y: $(size(y))")
+    #display("g: $(size(g))}")
     𝟏 = ones(length(node.output))
     Jx = diagm(y .* 𝟏)
     Jy = diagm(x .* 𝟏)
@@ -192,6 +201,8 @@ backward(node::BroadcastedOperator{typeof(maxPool)}, input, poolSize, g) = let
     
     output = node.output
     outputWidth,outputHeight,outputChannels = size(output)
+    #display("g_size: $(size(g))")
+    #display("output_size: $(size(output))")
 
     for i in 1:inputChannels
         for j in 1:(outputWidth*2)
@@ -205,3 +216,19 @@ backward(node::BroadcastedOperator{typeof(maxPool)}, input, poolSize, g) = let
 
     return tuple(result, 0)
 end
+
+#Flatten
+flatten(input::GraphNode) = BroadcastedOperator(flatten, input, name="Flatten")
+forward(::BroadcastedOperator{typeof(flatten)}, input) = let
+    return reshape(input, length(input))
+end
+backward(node::BroadcastedOperator{typeof(flatten)}, input, g) = let
+    #display("--- Flatten ---")
+    #display("input: $(size(input))")
+    #display("g: $(size(g))")
+    #display("g_output: $(size(reshape(g,size(input))))")
+    #display("g: $(reshape(g, size(input)))")
+    return tuple(reshape(g, size(input)))
+end
+
+
