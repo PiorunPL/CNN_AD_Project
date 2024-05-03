@@ -84,17 +84,46 @@ test = finalNet(image, filters1, filters2, wages1, wages2, y)
 #backward!(graph)
 #display(graph)
 
+trainDataset = MNIST(:train)
+trainData = [tuple(trainDataset.features[:,:,i], trainDataset.targets[i]) for i in 1:60000]
+testDataset = MNIST(:test)
+testData = [tuple(testDataset.features[:,:,i], testDataset.targets[i]) for i in 1:10000]
+
 losses = Float64[]
 batchsize = 100
+testBatchSize = 10000
 batchsize_gradient = 1
-epochs = 200 
+numberOfBatchesInEpoch = length(trainDataset.targets)/batchsize
+epochs = 3
 step = 0.1
 
-trainDataset = MNIST(:train)
-#shuffle!(trainDataset)
+shuffle!(trainData)
+shuffle!(testData)
 
-#@info("First forward")
-#push!(losses, first(forward!(graph)*batchsize))
+function testNetwork(testData, graph, batchsize, image, y)
+    shuffle!(testData)
+    accuracy = 0
+    for i in 1:batchsize
+        input, expectedOutput = testData[i]
+        image.output = input
+        y.output = expectedOutput
+        result = forward!(graph)
+        if netResult(result) == expectedOutput
+            accuracy += 1
+        end
+    end
+    return accuracy/batchsize*100
+end
+
+function netResult(x)
+    maxValue, index = findmax(x)
+    return index-1
+end
+
+#Initial test of network, before learning
+accuracyArray = Float64[]
+accuracy = testNetwork(testData, test,testBatchSize, image, y)
+push!(accuracyArray, accuracy)
 
 @showprogress for i in 1:epochs
     @info("
@@ -113,9 +142,9 @@ Starting batch $j in epoch $i
         y.output[trainDataset.targets[(i-1)*batchsize+j]+1] = 1
         
         
-        currentloss += first(forward!(graph))
+        currentloss += first(@time forward!(graph))
         @info("Current loss: $currentloss")
-        backward!(graph)
+        @time backward!(graph)
     end
 
     #if i == 1
@@ -133,6 +162,8 @@ Starting batch $j in epoch $i
         filters2.output[k] -= step*(filters2.gradient[k]/batchsize_gradient)
     end
 
+    accuracy = testNetwork(testData, test,testBatchSize, image, y)
+    push!(accuracyArray, accuracy)
     push!(losses, currentloss)
     reset!(graph)
 end
@@ -145,6 +176,6 @@ pushKittyDisplay!()
 
 # gr()
 plot(1:length(losses), losses, seriestype=:scatter) |> display
-
+plot(1:length(accuracyArray), accuracyArray, seriestype=:scatter) |> display
 image.output = trainDataset.features[:,:,40003]
 display(forward!(test))

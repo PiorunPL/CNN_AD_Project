@@ -22,5 +22,7 @@ backward(node::BroadcastedOperator{typeof(softmax)}, x, g) = let
     #display("g: $g")
     y = node.output
     J = diagm(y) .- y * y'
+    #display("y: $y")
+    #display("out: $(J' * g)")
     tuple(J' * g)
 end
