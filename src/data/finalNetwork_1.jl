@@ -16,32 +16,6 @@ using Random
 logger = SimpleLogger(open("./logs/log_finalNetwork_1.txt", "w+"))
 global_logger(logger)
 
-function finalNet(image, filters1, filters2, wages1, wages2, y, bias1, bias2, bias3, bias4)
-    a = conv(image, filters1)
-    a.name = "a Convolution"
-    a1 = bias(a, bias1)
-    a1.name = "a1 Bias"
-    a2 = relu(a1)
-    a2.name = "a2 ReLU"
-    b = maxPool(a2, Constant([2,2]))
-    b.name = "b MaxPool"
-    c = conv(b, filters2)
-    c.name = "c Convolution"
-    c1 = bias(c, bias2)
-    c1.name = "c1 Bias"
-    c2 = relu(c1)
-    c2.name = "c2 ReLU"
-    d = maxPool(c2, Constant([2,2]))
-    d.name = "d MaxPool"
-    e = flatten(d)
-    e.name = "e Flatten"
-    f = dense(wages1, e, bias3, relu)
-    f.name = "f Dense"
-    g = dense(wages2, f, bias4, softmax)
-    g.name = "g Dense"
-    return topological_sort(g)
-end
-
 function net(image, filters1, filters2, wages1, wages2, y, bias1, bias2, bias3, bias4)
     a = conv(image, filters1)
     a.name = "a Convolution"
@@ -67,7 +41,7 @@ function net(image, filters1, filters2, wages1, wages2, y, bias1, bias2, bias3, 
     g.name = "g Dense"
     loss = cross_entropy(y, g)
     loss.name = "Loss"
-    return topological_sort(loss)
+    return tuple(topological_sort(loss), topological_sort(g))
 end
 
 #image = Variable(randn(28,28,1)./2, name="Image")
@@ -91,8 +65,7 @@ bias4 = Variable(glorot_uniform(10, 10), name="Bias 4")
 display(filters1)
 #display(filters2)
 
-graph = net(image, filters1, filters2, wages1, wages2, y, bias1, bias2, bias3, bias4)
-test = finalNet(image, filters1, filters2, wages1, wages2, y, bias1, bias2, bias3, bias4)
+graph, test = net(image, filters1, filters2, wages1, wages2, y, bias1, bias2, bias3, bias4)
 #result = forward!(graph)
 #display(graph)
 #backward!(graph)
@@ -105,10 +78,10 @@ testData = [tuple(testDataset.features[:,:,i], testDataset.targets[i]) for i in 
 
 losses = Float64[]
 batchsize = 100
-testBatchSize = 1000
+testBatchSize = 100
 batchsize_gradient = 100#batchsize
 numberOfBatchesInEpoch = length(trainDataset.targets)/batchsize
-epochs = 600
+epochs = 200
 step = 0.01
 
 shuffle!(trainData)
