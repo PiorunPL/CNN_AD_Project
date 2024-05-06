@@ -7,6 +7,7 @@ include("../Layers.jl")
 include("../LossFunctions.jl")
 include("../Operations.jl")
 include("../WeightInit.jl")
+include("../NetworkLearning.jl")
 using LinearAlgebra
 using ProgressMeter
 using Logging
@@ -112,27 +113,14 @@ accuracyArray = Float64[]
 accuracy = testNetwork(testData, test,testBatchSize, image, y)
 push!(accuracyArray, accuracy)
 
+expectedOutput = Array{Float64}(undef,10)
+
 @showprogress for i in 1:epochs
     @info("
 --------------------------------------------------------------
 Starting epoch $i
 --------------------------------------------------------------")
-    currentloss = 0
-    for j in 1:batchsize
-        @info("
---------------------------------------------------------------
-Starting batch $j in epoch $i
---------------------------------------------------------------")
-    
-        image.output = trainDataset.features[:,:,(i-1)*batchsize+j]
-        y.output = zeros(10)
-        y.output[trainDataset.targets[(i-1)*batchsize+j]+1] = 1
-        
-        
-        currentloss += first(forward!(graph))
-        @info("Current loss: $currentloss")
-        backward!(graph)
-    end
+    currentloss = @views @time batch_process(graph,trainData[(i-1)*batchsize+1:i*batchsize], image, y, expectedOutput)
 
     #if i == 1
         #println("Wh: $(Wh.gradient)")
