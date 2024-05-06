@@ -74,9 +74,9 @@ import Base: max
 Base.Broadcast.Broadcast(max, x::GraphNode, y::GraphNode) = BroadcastedOperator(max, x , y, name="max")
 forward(::BroadcastedOperator{typeof(max)}, x, y) = return max.(x, y)
 backward(::BroadcastedOperator{typeof(max)}, x, y, g) = let
-    Jx = diagm(isless.(y,x))
-    Jy = diagm(isless.(x,y))
-    tuple(Jx' * g, Jy' * g)
+    Jx = isless.(y,x)
+    Jy = isless.(x,y)
+    tuple(Jx .* g, Jy .* g)
 end
 
 # Power

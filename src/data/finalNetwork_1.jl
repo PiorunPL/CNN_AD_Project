@@ -19,11 +19,15 @@ global_logger(logger)
 function finalNet(image, filters1, filters2, wages1, wages2, y)
     a = conv(image, filters1)
     a.name = "a Convolution"
-    b = maxPool(a, Constant([2,2]))
+    a1 = relu(a)
+    a1.name = "a1 ReLU"
+    b = maxPool(a1, Constant([2,2]))
     b.name = "b MaxPool"
     c = conv(b, filters2)
     c.name = "c Convolution"
-    d = maxPool(c, Constant([2,2]))
+    c1 = relu(c)
+    c1.name = "c1 ReLU"
+    d = maxPool(c1, Constant([2,2]))
     d.name = "d MaxPool"
     e = flatten(d)
     e.name = "e Flatten"
@@ -37,15 +41,15 @@ end
 function net(image, filters1, filters2, wages1, wages2, y)
     a = conv(image, filters1)
     a.name = "a Convolution"
-    #a1 = relu(a)
-    #a1.name = "a1 ReLU"
+    a1 = relu(a)
+    a1.name = "a1 ReLU"
     b = maxPool(a, Constant([2,2]))
     b.name = "b MaxPool"
     c = conv(b, filters2)
     c.name = "c Convolution"
-    #c1 = relu(c)
-    #c1.name = "c1 ReLU"
-    d = maxPool(c, Constant([2,2]))
+    c1 = relu(c)
+    c1.name = "c1 ReLU"
+    d = maxPool(c1, Constant([2,2]))
     d.name = "d MaxPool"
     e = flatten(d)
     e.name = "e Flatten"
@@ -91,10 +95,10 @@ testData = [tuple(testDataset.features[:,:,i], testDataset.targets[i]) for i in 
 
 losses = Float64[]
 batchsize = 100
-testBatchSize = 10000
+testBatchSize = 100
 batchsize_gradient = 1
 numberOfBatchesInEpoch = length(trainDataset.targets)/batchsize
-epochs = 3
+epochs = 100
 step = 0.1
 
 shuffle!(trainData)
@@ -142,9 +146,9 @@ Starting batch $j in epoch $i
         y.output[trainDataset.targets[(i-1)*batchsize+j]+1] = 1
         
         
-        currentloss += first(@time forward!(graph))
+        currentloss += first(forward!(graph))
         @info("Current loss: $currentloss")
-        @time backward!(graph)
+        backward!(graph)
     end
 
     #if i == 1
