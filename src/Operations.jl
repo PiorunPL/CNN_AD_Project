@@ -95,6 +95,14 @@ backward(node::BroadcastedOperator{typeof(^)}, x, y, g) = let
     tuple(Jx .* g, Jy .* g)
 end
 
+# log
+Base.Broadcast.broadcasted(log, x::GraphNode) = BroadcastedOperator(log, x, name="log")
+forward(::BroadcastedOperator{typeof(log)}, x) = return log.(x)
+backward(::BroadcastedOperator{typeof(log)}, x, g) = let
+    logDerivative = 1.0 ./ x
+    return tuple(logDerivative .* g)
+end
+
 ############################################################################
 # Needed for Convolution implementation
 ############################################################################

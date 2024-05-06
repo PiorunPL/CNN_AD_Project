@@ -59,7 +59,7 @@ function net(image, filters1, filters2, wages1, wages2, y)
     g.name = "g Dense"
     #h = softmax(g)
     #h.name = "h Softmax"
-    loss = mean_squared_loss(g, y, 10)
+    loss = cross_entropy(y, g)
     loss.name = "Loss"
     return topological_sort(loss)
 end
@@ -96,10 +96,10 @@ testData = [tuple(testDataset.features[:,:,i], testDataset.targets[i]) for i in 
 losses = Float64[]
 batchsize = 100
 testBatchSize = 100
-batchsize_gradient = 1
+batchsize_gradient = 10#batchsize
 numberOfBatchesInEpoch = length(trainDataset.targets)/batchsize
 epochs = 100
-step = 0.1
+step = 0.01
 
 shuffle!(trainData)
 shuffle!(testData)
