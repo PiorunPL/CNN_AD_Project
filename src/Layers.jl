@@ -8,3 +8,6 @@ function dense(w, x) return w * x end
 # MaxPool Layer 
 
 # Flatten Layer
+
+# Bias
+function bias(x, w) return x .+ w end

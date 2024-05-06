@@ -16,49 +16,55 @@ using Random
 logger = SimpleLogger(open("./logs/log_finalNetwork_1.txt", "w+"))
 global_logger(logger)
 
-function finalNet(image, filters1, filters2, wages1, wages2, y)
+function finalNet(image, filters1, filters2, wages1, wages2, y, bias1, bias2, bias3, bias4)
     a = conv(image, filters1)
     a.name = "a Convolution"
-    a1 = relu(a)
-    a1.name = "a1 ReLU"
-    b = maxPool(a1, Constant([2,2]))
+    a1 = bias(a, bias1)
+    a1.name = "a1 Bias"
+    a2 = relu(a1)
+    a2.name = "a2 ReLU"
+    b = maxPool(a2, Constant([2,2]))
     b.name = "b MaxPool"
     c = conv(b, filters2)
     c.name = "c Convolution"
-    c1 = relu(c)
-    c1.name = "c1 ReLU"
-    d = maxPool(c1, Constant([2,2]))
+    c1 = bias(c, bias2)
+    c1.name = "c1 Bias"
+    c2 = relu(c1)
+    c2.name = "c2 ReLU"
+    d = maxPool(c2, Constant([2,2]))
     d.name = "d MaxPool"
     e = flatten(d)
     e.name = "e Flatten"
-    f = dense(wages1, e, relu)
+    f = dense(wages1, e, bias3, relu)
     f.name = "f Dense"
-    g = dense(wages2, f, softmax)
+    g = dense(wages2, f, bias4, softmax)
     g.name = "g Dense"
     return topological_sort(g)
 end
 
-function net(image, filters1, filters2, wages1, wages2, y)
+function net(image, filters1, filters2, wages1, wages2, y, bias1, bias2, bias3, bias4)
     a = conv(image, filters1)
     a.name = "a Convolution"
-    a1 = relu(a)
-    a1.name = "a1 ReLU"
-    b = maxPool(a, Constant([2,2]))
+    a1 = bias(a, bias1)
+    a1.name = "a1 Bias"
+    a2 = relu(a1)
+    a2.name = "a2 ReLU"
+    b = maxPool(a2, Constant([2,2]))
     b.name = "b MaxPool"
     c = conv(b, filters2)
     c.name = "c Convolution"
-    c1 = relu(c)
-    c1.name = "c1 ReLU"
-    d = maxPool(c1, Constant([2,2]))
+    c1 = bias(c, bias2)
+    c1.name = "c1 Bias"
+    c2 = relu(c1)
+    c2.name = "c2 ReLU"
+    d = maxPool(c2, Constant([2,2]))
     d.name = "d MaxPool"
     e = flatten(d)
     e.name = "e Flatten"
-    f = dense(wages1, e, relu)
+    f = dense(wages1, e, bias3, relu)
     f.name = "f Dense"
-    g = dense(wages2, f, softmax)
+    g = dense(wages2, f, bias4, softmax)
     g.name = "g Dense"
-    #h = softmax(g)
-    #h.name = "h Softmax"
     loss = cross_entropy(y, g)
     loss.name = "Loss"
     return topological_sort(loss)
@@ -77,12 +83,16 @@ filters2 = Variable([glorot_uniform(3,3,6,3*3*6) for i in 1:16], name="Filters2"
 wages1 = Variable(glorot_uniform(84,400,84*400), name="Wages1")
 wages2 = Variable(glorot_uniform(10,84,10*84), name="Wages2")
 y = Variable(randn(10), name="Expected result y")
+bias1 = Variable(glorot_uniform(26,26,6,26*26*6), name="Bias 1")
+bias2 = Variable(glorot_uniform(11,11,16,11*11*16), name="Bias 2")
+bias3 = Variable(glorot_uniform(84, 84), name="Bias 3")
+bias4 = Variable(glorot_uniform(10, 10), name="Bias 4")
 
 display(filters1)
 #display(filters2)
 
-graph = net(image, filters1, filters2, wages1, wages2, y)
-test = finalNet(image, filters1, filters2, wages1, wages2, y)
+graph = net(image, filters1, filters2, wages1, wages2, y, bias1, bias2, bias3, bias4)
+test = finalNet(image, filters1, filters2, wages1, wages2, y, bias1, bias2, bias3, bias4)
 #result = forward!(graph)
 #display(graph)
 #backward!(graph)
@@ -95,10 +105,10 @@ testData = [tuple(testDataset.features[:,:,i], testDataset.targets[i]) for i in 
 
 losses = Float64[]
 batchsize = 100
-testBatchSize = 100
-batchsize_gradient = 10#batchsize
+testBatchSize = 1000
+batchsize_gradient = 100#batchsize
 numberOfBatchesInEpoch = length(trainDataset.targets)/batchsize
-epochs = 100
+epochs = 600
 step = 0.01
 
 shuffle!(trainData)
@@ -165,6 +175,10 @@ Starting batch $j in epoch $i
     for k in 1:length(filters2.output)
         filters2.output[k] -= step*(filters2.gradient[k]/batchsize_gradient)
     end
+    bias1.output -= step*(bias1.gradient/batchsize_gradient)
+    bias2.output -= step*(bias2.gradient/batchsize_gradient)
+    bias3.output -= step*(bias3.gradient/batchsize_gradient)
+    bias4.output -= step*(bias4.gradient/batchsize_gradient)
 
     accuracy = testNetwork(testData, test,testBatchSize, image, y)
     push!(accuracyArray, accuracy)
