@@ -53,8 +53,8 @@ end
 #y = Variable(randn(10), name="Expected result y")
 
 image = Variable(randn(28,28,1), name="Image")
-filters1 = Variable([glorot_uniform(3,3,1,3*3*1) for i in 1:6], name="Filters1")
-filters2 = Variable([glorot_uniform(3,3,6,3*3*6) for i in 1:16], name="Filters2")
+filters1 = Variable(glorot_uniform(3,3,1,6,3*3*1), name="Filters1")
+filters2 = Variable(glorot_uniform(3,3,6,16,3*3*6), name="Filters2")
 wages1 = Variable(glorot_uniform(84,400,84*400), name="Wages1")
 wages2 = Variable(glorot_uniform(10,84,10*84), name="Wages2")
 y = Variable(randn(10), name="Expected result y")
@@ -62,6 +62,8 @@ bias1 = Variable(glorot_uniform(26,26,6,26*26*6), name="Bias 1")
 bias2 = Variable(glorot_uniform(11,11,16,11*11*16), name="Bias 2")
 bias3 = Variable(glorot_uniform(84, 84), name="Bias 3")
 bias4 = Variable(glorot_uniform(10, 10), name="Bias 4")
+
+var_array = Variable[filters1, filters2, wages1, wages2, bias1, bias2, bias3, bias4]
 
 display(filters1)
 #display(filters2)
@@ -120,7 +122,7 @@ expectedOutput = Array{Float64}(undef,10)
 --------------------------------------------------------------
 Starting epoch $i
 --------------------------------------------------------------")
-    currentloss = @views @time batch_process(graph,trainData[(i-1)*batchsize+1:i*batchsize], image, y, expectedOutput)
+    currentloss = @time batch_process(graph,trainData[(i-1)*batchsize+1:i*batchsize], image, y, expectedOutput)
 
     #if i == 1
         #println("Wh: $(Wh.gradient)")

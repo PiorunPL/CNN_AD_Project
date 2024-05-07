@@ -111,16 +111,16 @@ conv(image::GraphNode, filters::GraphNode) = BroadcastedOperator(conv, image, fi
 forward(::BroadcastedOperator{typeof(conv)}, image, filters) = let
     # filters is an array of filters
     # image is an entry array
-    filterWidth = length(filters[1][:,1,1])
-    filterHeight = length(filters[1][1,:,1])
+    filterWidth = length(filters[:,1,1,1])
+    filterHeight = length(filters[1,:,1,1])
 
     targetWidth = length(image[:,1,1]) - filterWidth + 1
     targetHeight = length(image[1,:,1]) - filterHeight + 1
-    targetChannels = length(filters)
+    targetChannels = length(filters[1,1,1,:])
     
     result = zeros(targetWidth, targetHeight, targetChannels)
     for i in 1:targetChannels
-        filter = filters[i]
+        filter = filters[:,:,:,i]
         for j in 1:targetWidth
             for k in 1:targetHeight
                 result[j,k,i] = sum(image[j:(j+filterWidth-1),k:(k+filterHeight-1),:].*filter)
@@ -131,12 +131,12 @@ forward(::BroadcastedOperator{typeof(conv)}, image, filters) = let
 end
 backward(node::BroadcastedOperator{typeof(conv)}, image, filters, g) = let
     # Calculating backward of filters
-    filtersResult = [zeros(size(filters[1])) for i in 1:length(filters)]
+    filtersResult = zeros(size(filters))
 
-    filterWidth = length(filters[1][:,1,1])
-    filterHeight = length(filters[1][1,:,1])
-    filterChannels = length(filters[1][1,1,:])
-    numberOfFilters = length(filters)
+    filterWidth = length(filters[:,1,1,1])
+    filterHeight = length(filters[1,:,1,1])
+    filterChannels = length(filters[1,1,:,1])
+    numberOfFilters = length(filters[1,1,1,:])
     
     outputWidth = length(node.output[:,1,1])
     outputHeight = length(node.output[1,:,1])
@@ -147,13 +147,13 @@ backward(node::BroadcastedOperator{typeof(conv)}, image, filters, g) = let
         for i in 1:filterChannels
             for j in 1:filterWidth
                 for k in 1:filterHeight
-                    filtersResult[n][j,k,i]= sum(image[j:(j+outputWidth - 1),k:(k+outputHeight-1), i].*g_layer)
+                    filtersResult[j,k,i,n]= sum(image[j:(j+outputWidth - 1),k:(k+outputHeight-1), i].*g_layer)
                 end
             end
         end
     end
 
-    reversedFilters = [filters[i][end:-1:1, end:-1:1, :] for i in 1:length(filters)]
+    reversedFilters = filters[end:-1:1, end:-1:1, :, :] 
     g_extended = zeros(2*(filterWidth-1)+outputWidth, 2*(filterHeight-1)+outputHeight, numberOfFilters)
     g_extended[filterWidth:(filterWidth+outputWidth-1), filterHeight:(filterHeight+outputHeight-1),:] = g
     
@@ -161,10 +161,10 @@ backward(node::BroadcastedOperator{typeof(conv)}, image, filters, g) = let
     inputHeight = length(image[1,:,1])
 
     # Prepare refersed filters matrices
-    filtersToCalculate = [Array{Float64,3}(undef,filterWidth, filterHeight, outputChannels) for i in 1:filterChannels]
+    filtersToCalculate = Array{Float64,4}(undef,filterWidth, filterHeight, outputChannels, filterChannels)
     for i in 1:filterChannels
         for j in 1:outputChannels
-            filtersToCalculate[i][:,:,j] = reversedFilters[j][:,:,i]
+            filtersToCalculate[:,:,j,i] = reversedFilters[:,:,i,j]
         end
     end
 
@@ -173,7 +173,7 @@ backward(node::BroadcastedOperator{typeof(conv)}, image, filters, g) = let
     for i in 1:filterChannels
         for j in 1:inputWidth
             for k in 1:inputHeight
-                inputResult[j,k,i] = sum(g_extended[j:(j+filterWidth-1), k:(k+filterHeight-1), :].*filtersToCalculate[i])
+                inputResult[j,k,i] = sum(g_extended[j:(j+filterWidth-1), k:(k+filterHeight-1), :].*filtersToCalculate[:,:,:,i])
             end
         end
     end
