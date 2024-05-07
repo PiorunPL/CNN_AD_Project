@@ -7,7 +7,7 @@ include("../Layers.jl")
 include("../LossFunctions.jl")
 include("../Operations.jl")
 include("../WeightInit.jl")
-include("../NetworkLearning.jl")
+include("../NetworkOperations.jl")
 using LinearAlgebra
 using ProgressMeter
 using Logging
@@ -90,25 +90,6 @@ step = 0.01
 shuffle!(trainData)
 shuffle!(testData)
 
-function testNetwork(testData, graph, batchsize, image, y)
-    shuffle!(testData)
-    accuracy = 0
-    for i in 1:batchsize
-        input, expectedOutput = testData[i]
-        image.output = input
-        y.output = expectedOutput
-        result = forward!(graph)
-        if netResult(result) == expectedOutput
-            accuracy += 1
-        end
-    end
-    return accuracy/batchsize*100
-end
-
-function netResult(x)
-    maxValue, index = findmax(x)
-    return index-1
-end
 
 #Initial test of network, before learning
 accuracyArray = Float64[]
@@ -117,31 +98,33 @@ push!(accuracyArray, accuracy)
 
 expectedOutput = Array{Float64}(undef,10)
 
-@showprogress for i in 1:epochs
+@time @showprogress for i in 1:epochs
     @info("
 --------------------------------------------------------------
 Starting epoch $i
 --------------------------------------------------------------")
-    currentloss = @time batch_process(graph,trainData[(i-1)*batchsize+1:i*batchsize], image, y, expectedOutput)
+    currentloss = batch_process(graph,trainData[(i-1)*batchsize+1:i*batchsize], image, y, expectedOutput)
 
     #if i == 1
         #println("Wh: $(Wh.gradient)")
         #println("Wo: $(Wo.gradient)")
     #end
 
-    image.output -= step*(image.gradient/batchsize_gradient)
-    wages1.output -= step*(wages1.gradient/batchsize_gradient)
-    wages2.output -= step*(wages2.gradient/batchsize_gradient)
-    for k in 1:length(filters1.output)
-        filters1.output[k] -= step*(filters1.gradient[k]/batchsize_gradient)
-    end
-    for k in 1:length(filters2.output)
-        filters2.output[k] -= step*(filters2.gradient[k]/batchsize_gradient)
-    end
-    bias1.output -= step*(bias1.gradient/batchsize_gradient)
-    bias2.output -= step*(bias2.gradient/batchsize_gradient)
-    bias3.output -= step*(bias3.gradient/batchsize_gradient)
-    bias4.output -= step*(bias4.gradient/batchsize_gradient)
+    #image.output -= step*(image.gradient/batchsize_gradient)
+    #wages1.output -= step*(wages1.gradient/batchsize_gradient)
+    #wages2.output -= step*(wages2.gradient/batchsize_gradient)
+    #for k in 1:length(filters1.output)
+    #    filters1.output[k] -= step*(filters1.gradient[k]/batchsize_gradient)
+    #end
+    #for k in 1:length(filters2.output)
+    #    filters2.output[k] -= step*(filters2.gradient[k]/batchsize_gradient)
+    #end
+    #bias1.output -= step*(bias1.gradient/batchsize_gradient)
+    #bias2.output -= step*(bias2.gradient/batchsize_gradient)
+    #bias3.output -= step*(bias3.gradient/batchsize_gradient)
+    #bias4.output -= step*(bias4.gradient/batchsize_gradient)
+
+    batch_update!(var_array, step, batchsize)
 
     accuracy = testNetwork(testData, test,testBatchSize, image, y)
     push!(accuracyArray, accuracy)
