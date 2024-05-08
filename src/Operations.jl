@@ -119,11 +119,6 @@ forward(::BroadcastedOperator{typeof(conv)}, image, filters) = let
 
     targetWidth = length(image[:,1,1]) - filterWidth + 1
     targetHeight = length(image[1,:,1]) - filterHeight + 1
-   # targetChannels = length(filters[1,1,1,:])
-
-    #display(targetWidth)
-    #display(targetHeight)
-    #display(targetChannels)
     
     result = Array{Float64, 3}(undef, targetWidth, targetHeight, targetChannels)
 
