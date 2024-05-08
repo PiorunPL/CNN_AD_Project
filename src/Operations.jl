@@ -111,12 +111,13 @@ conv(image::GraphNode, filters::GraphNode) = BroadcastedOperator(conv, image, fi
 forward(::BroadcastedOperator{typeof(conv)}, image, filters) = let
     # filters is an array of filters
     # image is an entry array
-    filterWidth = length(filters[:,1,1,1])
-    filterHeight = length(filters[1,:,1,1])
+    #filterWidth = length(filters[:,1,1,1])
+    #filterHeight = length(filters[1,:,1,1])
+    filterWidth, filterHeight, filterChannels, targetChannels = size(filters)
 
     targetWidth = length(image[:,1,1]) - filterWidth + 1
     targetHeight = length(image[1,:,1]) - filterHeight + 1
-    targetChannels = length(filters[1,1,1,:])
+    #targetChannels = length(filters[1,1,1,:])
     
     result = zeros(targetWidth, targetHeight, targetChannels)
     for i in 1:targetChannels
