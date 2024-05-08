@@ -107,26 +107,41 @@ end
 # Needed for Convolution implementation
 ############################################################################
 # Convolution
+using DSP
 conv(image::GraphNode, filters::GraphNode) = BroadcastedOperator(conv, image, filters, name="Convolution")
 forward(::BroadcastedOperator{typeof(conv)}, image, filters) = let
     # filters is an array of filters
     # image is an entry array
-    filterWidth = length(filters[:,1,1,1])
-    filterHeight = length(filters[1,:,1,1])
+    #filterWidth = length(filters[:,1,1,1])
+    #filterHeight = length(filters[1,:,1,1])
+    #filterChannels = length(filters[1,1,:,1])
+    filterWidth, filterHeight, filterChannels, targetChannels = size(filters)
 
     targetWidth = length(image[:,1,1]) - filterWidth + 1
     targetHeight = length(image[1,:,1]) - filterHeight + 1
-    targetChannels = length(filters[1,1,1,:])
+   # targetChannels = length(filters[1,1,1,:])
+
+    #display(targetWidth)
+    #display(targetHeight)
+    #display(targetChannels)
     
-    result = zeros(targetWidth, targetHeight, targetChannels)
+    result = Array{Float64, 3}(undef, targetWidth, targetHeight, targetChannels)
+
     for i in 1:targetChannels
         filter = filters[:,:,:,i]
-        for j in 1:targetWidth
-            for k in 1:targetHeight
-                result[j,k,i] = sum(image[j:(j+filterWidth-1),k:(k+filterHeight-1),:].*filter)
-            end
-        end
+        res = DSP.conv(image, filter)
+        result[:,:,i] = @views res[(end-filterWidth+1):-1:filterWidth,(end-filterHeight+1):-1:filterHeight, (end-filterChannels+1:-1:filterChannels)]
     end
+
+    #result = zeros(targetWidth, targetHeight, targetChannels)
+    #for i in 1:targetChannels
+    #    filter = filters[:,:,:,i]
+    #    for j in 1:targetWidth
+    #        for k in 1:targetHeight
+    #            result[j,k,i] = sum(image[j:(j+filterWidth-1),k:(k+filterHeight-1),:].*filter)
+    #        end
+    #    end
+    #end
     return result
 end
 backward(node::BroadcastedOperator{typeof(conv)}, image, filters, g) = let
