@@ -121,10 +121,10 @@ forward(::BroadcastedOperator{typeof(conv)}, image, filters) = let
     
     result = zeros(targetWidth, targetHeight, targetChannels)
     for i in 1:targetChannels
-        filter = filters[:,:,:,i]
+        filter = @views filters[:,:,:,i]
         for j in 1:targetWidth
             for k in 1:targetHeight
-                result[j,k,i] = sum(image[j:(j+filterWidth-1),k:(k+filterHeight-1),:].*filter)
+                result[j,k,i] = sum(@views image[j:(j+filterWidth-1),k:(k+filterHeight-1),:].*filter)
             end
         end
     end
