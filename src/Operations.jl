@@ -117,7 +117,7 @@ forward(::BroadcastedOperator{typeof(conv)}, image, filters) = let
     
     #result = Array{Float64}(undef, (targetWidth, targetHeight, targetChannels))
     result = zeros(targetWidth, targetHeight, targetChannels)
-    for i in 1:targetChannels,
+    @inbounds for i in 1:targetChannels,
         j in 1:imageChannels,
         filterCol in 1:filterWidth,
         k in 1:targetWidth,
