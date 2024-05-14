@@ -75,9 +75,9 @@ graph, test = net(image, filters1, filters2, wages1, wages2, y, bias1, bias2, bi
 #display(graph)
 
 trainDataset = MNIST(:train)
-trainData = [tuple(trainDataset.features[:,:,i], trainDataset.targets[i]) for i in 1:60000]
+trainData = [tuple(reshape(trainDataset.features[:,:,i],28,28,1), trainDataset.targets[i]) for i in 1:60000]
 testDataset = MNIST(:test)
-testData = [tuple(testDataset.features[:,:,i], testDataset.targets[i]) for i in 1:10000]
+testData = [tuple(reshape(testDataset.features[:,:,i],28,28,1), testDataset.targets[i]) for i in 1:10000]
 
 losses = Float64[]
 batchsize = 100

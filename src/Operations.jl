@@ -109,24 +109,31 @@ end
 # Convolution
 conv(image::GraphNode, filters::GraphNode) = BroadcastedOperator(conv, image, filters, name="Convolution")
 forward(::BroadcastedOperator{typeof(conv)}, image, filters) = let
-    # filters is an array of filters
-    # image is an entry array
-    filterWidth = length(filters[:,1,1,1])
-    filterHeight = length(filters[1,:,1,1])
+    filterHeight, filterWidth, filterChannels, targetChannels = size(filters)
+    imageHeight, imageWidth, imageChannels = size(image)
 
-    targetWidth = length(image[:,1,1]) - filterWidth + 1
-    targetHeight = length(image[1,:,1]) - filterHeight + 1
-    targetChannels = length(filters[1,1,1,:])
+    targetWidth = imageWidth - filterWidth + 1
+    targetHeight = imageHeight - filterHeight + 1
     
+    #result = Array{Float64}(undef, (targetWidth, targetHeight, targetChannels))
     result = zeros(targetWidth, targetHeight, targetChannels)
-    for i in 1:targetChannels
-        filter = filters[:,:,:,i]
-        for j in 1:targetWidth
-            for k in 1:targetHeight
-                result[j,k,i] = sum(image[j:(j+filterWidth-1),k:(k+filterHeight-1),:].*filter)
-            end
-        end
+    for i in 1:targetChannels,
+        j in 1:imageChannels,
+        filterCol in 1:filterWidth,
+        k in 1:targetWidth,
+        l in 1:targetHeight,
+        m in 1:filterHeight
+            result[l,k,i] += image[l+m-1,filterCol+k-1,j]*filters[m,filterCol,j,i]
     end
+
+    #for i in 1:targetChannels
+    #    filter = filters[:,:,:,i]
+    #    for j in 1:targetWidth
+    #        for k in 1:targetHeight
+    #            result[j,k,i] = sum(image[j:(j+filterWidth-1),k:(k+filterHeight-1),:].*filter)
+    #        end
+    #    end
+    #end
     return result
 end
 backward(node::BroadcastedOperator{typeof(conv)}, image, filters, g) = let
