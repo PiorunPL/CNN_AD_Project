@@ -155,6 +155,7 @@ function main()
     # println("ttttt")
     println(typeof(trainDataset.features[:,:,40003]))
     image.output = trainDataset.features[:,:,40003]
+    image.output = reshape(image.output, 28, 28, 1)
     display(forward!(test))
 end
 
