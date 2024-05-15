@@ -1,3 +1,5 @@
+include("Utils.jl")
+
 # Scalar Operators
 import Base: ^, sin
 
@@ -15,21 +17,22 @@ import LinearAlgebra: mul!
 
 # Multiplication
 *(A::GraphNode, x::GraphNode) = BroadcastedOperator(mul!, A, x, name="mul!")
-forward(::BroadcastedOperator{typeof(mul!)}, A, x) = return A * x
+forward(::BroadcastedOperator{typeof(mul!)}, A, x) = let 
+    return A * x
+end
 backward(::BroadcastedOperator{typeof(mul!)}, A, x, g) = let
-    #display("--- Mul ---")
-    #display("W: $(size(A))")
-    #display("input: $(size(x))")
-    #display("g: $(size(g))}")
     tuple(g * x', A' * g)
 end
+
 Base.Broadcast.broadcasted(*, x::GraphNode, y::GraphNode) = BroadcastedOperator(*, x, y, name="*")
-forward(::BroadcastedOperator{typeof(*)}, x, y) = return x .* y
+forward(::BroadcastedOperator{typeof(*)}, x, y) = let 
+    # println("typeof x: $(typeof(x))")
+    # println("typeof y: $(typeof(y))")
+    # println("typeof x .* y: $(typeof(x .* y))")
+    return x .* y
+end
 backward(node::BroadcastedOperator{typeof(*)}, x, y, g) = let
-    #display("--- * ---")
-    #display("x: $(size(x))")
-    #display("y: $(size(y))")
-    #display("g: $(size(g))}")
+    x, y = convert_to_float32(x, y)
     𝟏 = ones(length(node.output))
     Jx = diagm(y .* 𝟏)
     Jy = diagm(x .* 𝟏)
@@ -38,17 +41,52 @@ end
 
 # Subtraction
 Base.Broadcast.broadcasted(-, x::GraphNode, y::GraphNode) = BroadcastedOperator(-, x, y, name="-")
-forward(::BroadcastedOperator{typeof(-)}, x, y) = return x .- y
+forward(::BroadcastedOperator{typeof(-)}, x, y) = let
+    x, y = convert_to_float32(x, y)
+    return x .- y
+end
+
 backward(::BroadcastedOperator{typeof(-)}, x, y, g) = return tuple(g, -g)
 
 # Addition
 Base.Broadcast.broadcasted(+, x::GraphNode, y::GraphNode) = BroadcastedOperator(+, x, y, name="+")
-forward(::BroadcastedOperator{typeof(+)}, x, y) = return x .+ y
+# ogarnięte, zwraca floaty32 forward
+forward(::BroadcastedOperator{typeof(+)}, x, y) = let
+    x, y = convert_to_float32(x, y)
+    # if isa(x, Vector{Float64})
+    #     x = convert(Vector{Float32}, x)
+    # end
+    # if isa(y, Vector{Float64})
+    #     y = convert(Vector{Float32}, y)
+    # end
+    # if isa(x, Vector{Float64})
+    #     x = convert(Vector{Float32}, x)
+    # end
+    # if isa(y, Vector{Float64})
+    #     y = convert(Vector{Float32}, y)
+    # end
+    # println("typeof x: $(typeof(x))")
+    # println("typeof y: $(typeof(y))")
+    result = x .+ y
+    # println("typeof result: $(typeof(result))")
+    # if isa(result, Array{Float64, 3})
+    #     result = convert(Array{Float32, 3}, result)
+    # end
+    # if isa( result, Vector{Float64})
+    #     result = convert(Vector{Float32}, result)
+    # end
+    return x .+ y
+end
 backward(::BroadcastedOperator{typeof(+)}, x, y, g) = return tuple(g, g)
 
 # Division
 Base.Broadcast.broadcasted(/, x::GraphNode, y::GraphNode) = BroadcastedOperator(/, x, y, name="/")
-forward(::BroadcastedOperator{typeof(/)}, x, y) = return x ./ y
+forward(::BroadcastedOperator{typeof(/)}, x, y) = let 
+    x, y = convert_to_float32(x, y)
+    # println("typeof x: $(typeof(x))")
+    # println("typeof y: $(typeof(y))")
+    return x ./ y
+end
 backward(node::BroadcastedOperator{typeof(/)}, x, y, g) = let
     𝟏 = ones(length(node.output))
     Jx = diagm(𝟏 ./ y)
@@ -61,18 +99,27 @@ import Base: sum
 sum(x::GraphNode) = BroadcastedOperator(sum, x, name="sum")
 forward(::BroadcastedOperator{typeof(sum)}, x) = return sum(x)
 backward(::BroadcastedOperator{typeof(sum)}, x, g) = let
-    #display("--- SUM ---")
-    #display("x: $x")
-    #display("g: $g")
     𝟏 = ones(size(x))
-    #display("𝟏: $𝟏")
     tuple(𝟏 .* g)
 end
 
 # Max
 import Base: max
 Base.Broadcast.Broadcast(max, x::GraphNode, y::GraphNode) = BroadcastedOperator(max, x , y, name="max")
-forward(::BroadcastedOperator{typeof(max)}, x, y) = return max.(x, y)
+# forward wygląda ok
+forward(::BroadcastedOperator{typeof(max)}, x, y) = let 
+    
+    if isa(x, Vector{Float64})
+        x = convert(Vector{Float32}, x)
+    end
+    if isa(y, Float64)
+        y = convert(Float32, y)
+    end
+    # println("typeof x in max: $(typeof(x))")
+    # println("typeof y in max: $(typeof(y))")
+    # println("typeof max(x, y) in max: $(typeof(max.(x, y)))")
+    return max.(x, y)
+end
 backward(::BroadcastedOperator{typeof(max)}, x, y, g) = let
     Jx = isless.(y,x)
     Jy = isless.(x,y)
@@ -81,17 +128,15 @@ end
 
 # Power
 Base.Broadcast.broadcasted(^, x::GraphNode, y::GraphNode) = BroadcastedOperator(^, x, y, name="^")
-forward(::BroadcastedOperator{typeof(^)}, x, y) = return x .^ y
+forward(::BroadcastedOperator{typeof(^)}, x, y) = let
+    x, y = convert_to_float32(x, y)
+    return x .^ y
+end
 backward(node::BroadcastedOperator{typeof(^)}, x, y, g) = let
-    #display("--- ^ ---")
+    x, y = convert_to_float32(x, y)
     𝟏 = ones(length(node.output))
-    #display("x: $x")
-    #display("y: $y")
-    #display("g: $g")
     Jx = y .* x .^ (y .- 1)
-    #display("Jx: $Jx")
     Jy = x .^ y .* log.(abs.(x))
-    #display("Jy: $Jy")
     tuple(Jx .* g, Jy .* g)
 end
 
@@ -107,8 +152,12 @@ end
 # Needed for Convolution implementation
 ############################################################################
 # Convolution
-conv(image::GraphNode, filters::GraphNode) = BroadcastedOperator(conv, image, filters, name="Convolution")
+conv(image::GraphNode, filters::GraphNode) = BroadcastedOperator(conv, image::GraphNode, filters::GraphNode, name="Convolution")
+# forward(::BroadcastedOperator{typeof(conv)}, image::Matrix{Float32}, filters::Array{Float64}) = forward(reshape(convert(Array{Float64}, image), size(image)[1], size(image)[2], 1), filters)
+# forward ma output git - array{Float32}
 forward(::BroadcastedOperator{typeof(conv)}, image, filters) = let
+    # println("typeof image: $(typeof(image))")
+    # println("typeof filters: $(typeof(filters))")
     # filters is an array of filters
     # image is an entry array
     filterWidth = length(filters[:,1,1,1])
@@ -118,20 +167,28 @@ forward(::BroadcastedOperator{typeof(conv)}, image, filters) = let
     targetHeight = length(image[1,:,1]) - filterHeight + 1
     targetChannels = length(filters[1,1,1,:])
     
-    result = zeros(targetWidth, targetHeight, targetChannels)
+    result = Array{Float32,3}(undef, targetWidth, targetHeight, targetChannels)
+    # result = zeros(targetWidth, targetHeight, targetChannels)
+    # result = convert(Array{Float32, 3}, result)
     for i in 1:targetChannels
         filter = filters[:,:,:,i]
+        # println("typeof filter: $(typeof(filter))")
         for j in 1:targetWidth
             for k in 1:targetHeight
                 result[j,k,i] = sum(image[j:(j+filterWidth-1),k:(k+filterHeight-1),:].*filter)
             end
         end
     end
+    # println("typeof result: $(typeof(result))")
+    # return convert(Array{Float32, 3}, result)
     return result
 end
 backward(node::BroadcastedOperator{typeof(conv)}, image, filters, g) = let
+# backward(node::BroadcastedOperator{typeof(conv)}, image, filters::Array{Float32, 4}, g::Array{Float64, 3}) = let
+    # println("typeof g in backward: $(typeof(g))")
     # Calculating backward of filters
     filtersResult = zeros(size(filters))
+    # println("typeof filtersResult: $(typeof(filtersResult))")
 
     filterWidth = length(filters[:,1,1,1])
     filterHeight = length(filters[1,:,1,1])
@@ -182,8 +239,10 @@ backward(node::BroadcastedOperator{typeof(conv)}, image, filters, g) = let
 end
 
 #MaxPool
-maxPool(input::GraphNode, poolSize::GraphNode) = BroadcastedOperator(maxPool, input, poolSize, name="Max Pool")
-forward(node::BroadcastedOperator{typeof(maxPool)}, input, poolSize) = let
+maxPool(input::GraphNode, poolSize::GraphNode) = BroadcastedOperator(maxPool, input::GraphNode, poolSize::Constant, name="Max Pool")
+# forward wygląda ok
+forward(node::BroadcastedOperator{typeof(maxPool)}, input::Array{Float32, 3}, poolSize::Vector{Int64}) = let
+    # println("typeof input: $(typeof(input))");
     inputWidth = length(input[:,1,1])
     inputHeight = length(input[1,:,1])
     inputChannels = length(input[1,1,:])
@@ -191,7 +250,8 @@ forward(node::BroadcastedOperator{typeof(maxPool)}, input, poolSize) = let
     outputWidth = floor(Int, inputWidth/poolSize[1])
     outputHeight = floor(Int, inputHeight/poolSize[2])
 
-    output = zeros(outputWidth, outputHeight, inputChannels)
+    output = Array{Float32,3}(undef, outputWidth, outputHeight, inputChannels)
+    # output = zeros(outputWidth, outputHeight, inputChannels)
 
     for i in 1:inputChannels
         for j in 1:outputWidth
@@ -200,10 +260,12 @@ forward(node::BroadcastedOperator{typeof(maxPool)}, input, poolSize) = let
             end
         end
     end
-
+    # println("typeof output: $(typeof(output))")
     return output
 end
-backward(node::BroadcastedOperator{typeof(maxPool)}, input, poolSize, g) = let
+backward(node::BroadcastedOperator{typeof(maxPool)}, input, poolSize::Vector{Int64}, g) = let
+# backward(node::BroadcastedOperator{typeof(maxPool)}, input::Array{Float64, 3}, poolSize::Vector{Int64}, g::Array{Float64, 3}) = let
+    # println("typeof g in backward: $(typeof(g))")
     result = zeros(size(input))
     inputWidth,inputHeight,inputChannels = size(input)
     
@@ -222,21 +284,17 @@ backward(node::BroadcastedOperator{typeof(maxPool)}, input, poolSize, g) = let
         end
     end
 
-    return tuple(result, 0)
+    return tuple(result, 0.0)
 end
 
 #Flatten
-flatten(input::GraphNode) = BroadcastedOperator(flatten, input, name="Flatten")
-forward(::BroadcastedOperator{typeof(flatten)}, input) = let
+flatten(input::GraphNode) = BroadcastedOperator(flatten, input::GraphNode, name="Flatten")
+forward(::BroadcastedOperator{typeof(flatten)}, input::Array{Float32, 3}) = let
+    # println("typeof input: $(typeof(input))")
+    # println("typeof reshape(input, length(input))", typeof(reshape(input, length(input))))
     return reshape(input, length(input))
 end
-backward(node::BroadcastedOperator{typeof(flatten)}, input, g) = let
-    #display("--- Flatten ---")
-    #display("input: $(size(input))")
-    #display("g: $(size(g))")
-    #display("g_output: $(size(reshape(g,size(input))))")
-    #display("g: $(reshape(g, size(input)))")
+backward(node::BroadcastedOperator{typeof(flatten)}, input::Array{Float32, 3}, g::Vector{Float64}) = let
+    # println("typeof g in backward: $(typeof(g))")
     return tuple(reshape(g, size(input)))
 end
-
-
