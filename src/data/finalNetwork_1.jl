@@ -65,6 +65,17 @@ function main()
     bias2 = Variable(glorot_uniform(11,11,16,Int32(11*11*16)), name="Bias 2")
     bias3 = Variable(glorot_uniform(84, Int32(84)), name="Bias 3")
     bias4 = Variable(glorot_uniform(10, Int32(10)), name="Bias 4")
+
+    println("typeof image", typeof(image.output))
+    println("typeof filters1", typeof(filters1.output))
+    println("typeof filters2", typeof(filters2.output))
+    println("typeof wages1", typeof(wages1.output))
+    println("typeof wages2", typeof(wages2.output))
+    println("typeof y", typeof(y.output))
+    println("typeof bias1", typeof(bias1.output))
+    println("typeof bias2", typeof(bias2.output))
+    println("typeof bias3", typeof(bias3.output))
+    println("typeof bias4", typeof(bias4.output))
     
 
     var_array = Variable[filters1, filters2, wages1, wages2, bias1, bias2, bias3, bias4]
@@ -102,7 +113,7 @@ function main()
         currentloss = batch_process(graph,trainData[(i-1)*batchsize+1:i*batchsize], image, y, expectedOutput)
         batch_update!(var_array, step, batchsize)
 
-        accuracy = testNetwork(testData, test,testBatchSize, image, y)
+        # accuracy = testNetwork(testData, test,testBatchSize, image, y)
         println("Accuracy: ", accuracy)
         push!(accuracyArray, accuracy)
         push!(losses, currentloss)

@@ -14,6 +14,7 @@ end
 function batch_update!(node_arr::Vector{Variable}, step::Float32, batchsize::Int64)
     for node in node_arr
         node.output -= step.*(node.gradient./batchsize)
+        # println("typeof node.output ", typeof(node.output), "; name: ", node.name)
     end
 end
 

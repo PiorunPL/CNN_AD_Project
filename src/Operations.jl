@@ -131,7 +131,7 @@ forward(::BroadcastedOperator{typeof(conv)}, image::Array{Float32, 3}, filters::
     targetWidth = imageWidth - filterWidth + 1
     targetHeight = imageHeight - filterHeight + 1
     
-    result = zeros(targetWidth, targetHeight, targetChannels)
+    result = zeros(Float32, targetWidth, targetHeight, targetChannels)
     @inbounds for i in 1:targetChannels,
         j in 1:imageChannels,
         filterCol in 1:filterWidth,
@@ -148,7 +148,6 @@ backward(node::BroadcastedOperator{typeof(conv)}, image::Array{Float32, 3}, filt
     filterHeight, filterWidth, filterChannels, numberOfFilters = size(filters)
     outputHeight, outputWidth, outputChannels = size(node.output)
     imageHeight, imageWidth, imageChannels = size(image)
-    filtersResult = Array{Float64,4}(undef,size(filters))
 
     @inbounds @views for n in 1:numberOfFilters
         glayer=g[:,:,n]
@@ -179,7 +178,7 @@ backward(node::BroadcastedOperator{typeof(conv)}, image::Array{Float32, 3}, filt
     #        filtersResult[j,i,k,l] += image[j+n-1,i+m-1,k]*g[n,m,l]
     # end
 
-    inputResult = zeros(Float64, size(image))
+    # inputResult = zeros(Float64, size(image))
 
     # @inbounds for i in 1:targetChannels,
     #     j in 1:imageChannels,
@@ -228,8 +227,9 @@ backward(node::BroadcastedOperator{typeof(conv)}, image::Array{Float32, 3}, filt
         end
     end
 
+    # println("typeof inputResult ", typeof(inputResult))
+    # println("typeof filtersResult ", typeof(filtersResult))
     return tuple(inputResult, filtersResult)
-end
 end
 
 #MaxPool
@@ -254,8 +254,8 @@ forward(node::BroadcastedOperator{typeof(maxPool)}, input::Array{Float32, 3}, po
     return output
 end
 backward(node::BroadcastedOperator{typeof(maxPool)}, input::Array{Float32, 3}, poolSize::Vector{Int64}, g::Array{Float32, 3}) = let
-    result = zeros(size(input))
-    result = convert(Array{Float32, 3}, result)
+    result = zeros(Float32, size(input))
+    # result = convert(Array{Float32, 3}, result)
     inputWidth,inputHeight,inputChannels = size(input)
     
     output = node.output
