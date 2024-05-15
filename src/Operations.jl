@@ -1,5 +1,3 @@
-include("Utils.jl")
-
 # Scalar Operators
 import Base: ^, sin
 
@@ -59,7 +57,6 @@ end
 # Division
 Base.Broadcast.broadcasted(/, x::GraphNode, y::GraphNode) = BroadcastedOperator(/, x::GraphNode, y::GraphNode, name="/")
 forward(::BroadcastedOperator{typeof(/)}, x, y) = let 
-    x, y = convert_to_float32(x, y)
     return x ./ y
 end
 backward(node::BroadcastedOperator{typeof(/)}, x, y, g) = let
@@ -103,11 +100,9 @@ end
 # Power
 Base.Broadcast.broadcasted(^, x::GraphNode, y::GraphNode) = BroadcastedOperator(^, x, y, name="^")
 forward(::BroadcastedOperator{typeof(^)}, x, y) = let
-    x, y = convert_to_float32(x, y)
     return x .^ y
 end
 backward(node::BroadcastedOperator{typeof(^)}, x, y, g) = let
-    x, y = convert_to_float32(x, y)
     𝟏 = ones(length(node.output))
     Jx = y .* x .^ (y .- 1)
     Jy = x .^ y .* log.(abs.(x))

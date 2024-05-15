@@ -13,18 +13,11 @@ end
 
 # Softmax
 softmax(x::GraphNode) = BroadcastedOperator(softmax, x::BroadcastedOperator)
-forward(::BroadcastedOperator{typeof(softmax)}, x::Vector) = let
-# forward(::BroadcastedOperator{typeof(softmax)}, x::Vector{Float64}) = let
-    # println("typeof(x): ", typeof(x))
-    # println("typeof exp.(x) ./ sum(exp.(x))", typeof(exp.(x) ./ sum(exp.(x))))
+forward(::BroadcastedOperator{typeof(softmax)}, x::Vector{Float32}) = let
     return exp.(x) ./ sum(exp.(x))
 end
-backward(node::BroadcastedOperator{typeof(softmax)}, x::Vector, g::Vector{Float32}) = let
-    # println("typeof g: ", typeof(g))
+backward(node::BroadcastedOperator{typeof(softmax)}, x::Vector{Float32}, g::Vector{Float32}) = let
     y = node.output
-    # println("typeof y: ", typeof(y))
     J = diagm(y) .- y * y'
-    # println("typeof J: ", typeof(J))
-    # println("typeof J' * g: ", typeof(J' * g))
     tuple(J' * g)
 end
