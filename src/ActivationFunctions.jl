@@ -19,9 +19,12 @@ forward(::BroadcastedOperator{typeof(softmax)}, x::Vector) = let
     # println("typeof exp.(x) ./ sum(exp.(x))", typeof(exp.(x) ./ sum(exp.(x))))
     return exp.(x) ./ sum(exp.(x))
 end
-backward(node::BroadcastedOperator{typeof(softmax)}, x::Vector, g::Vector) = let
+backward(node::BroadcastedOperator{typeof(softmax)}, x::Vector, g::Vector{Float32}) = let
     # println("typeof g: ", typeof(g))
     y = node.output
+    # println("typeof y: ", typeof(y))
     J = diagm(y) .- y * y'
+    # println("typeof J: ", typeof(J))
+    # println("typeof J' * g: ", typeof(J' * g))
     tuple(J' * g)
 end

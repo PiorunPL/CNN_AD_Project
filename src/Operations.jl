@@ -132,24 +132,43 @@ forward(::BroadcastedOperator{typeof(max)}, x, y) = let
     return max.(x, y)
 end
 backward(::BroadcastedOperator{typeof(max)}, x, y, g) = let
+    if isa(y, Float64)
+        y = convert(Float32, y)
+    end
+    if isa(x, Vector{Float64})
+        x = convert(Vector{Float32}, x)
+    end
+    if isa(g, Vector{Float64})
+        g = convert(Vector{Float32}, g)
+    end
+    if isa(x, Array{Float64, 3})
+        x = convert(Array{Float32, 3}, x)
+    end
+    if isa(g, Array{Float64, 3})
+        g = convert(Array{Float32, 3}, g)
+    end
+
+    # println("typeof g in max: $(typeof(g))")
+    # println("typeof x in max: $(typeof(x))")
+    # println("typeof y in max: $(typeof(y))")
     Jx = isless.(y,x)
     Jy = isless.(x,y)
     tuple(Jx .* g, Jy .* g)
 end
 
 # Power
-Base.Broadcast.broadcasted(^, x::GraphNode, y::GraphNode) = BroadcastedOperator(^, x, y, name="^")
-forward(::BroadcastedOperator{typeof(^)}, x, y) = let
-    x, y = convert_to_float32(x, y)
-    return x .^ y
-end
-backward(node::BroadcastedOperator{typeof(^)}, x, y, g) = let
-    x, y = convert_to_float32(x, y)
-    𝟏 = ones(length(node.output))
-    Jx = y .* x .^ (y .- 1)
-    Jy = x .^ y .* log.(abs.(x))
-    tuple(Jx .* g, Jy .* g)
-end
+# Base.Broadcast.broadcasted(^, x::GraphNode, y::GraphNode) = BroadcastedOperator(^, x, y, name="^")
+# forward(::BroadcastedOperator{typeof(^)}, x, y) = let
+#     x, y = convert_to_float32(x, y)
+#     return x .^ y
+# end
+# backward(node::BroadcastedOperator{typeof(^)}, x, y, g) = let
+#     x, y = convert_to_float32(x, y)
+#     𝟏 = ones(length(node.output))
+#     Jx = y .* x .^ (y .- 1)
+#     Jy = x .^ y .* log.(abs.(x))
+#     tuple(Jx .* g, Jy .* g)
+# end
 
 # log
 Base.Broadcast.broadcasted(log, x::GraphNode) = BroadcastedOperator(log, x::GraphNode, name="log")
@@ -163,7 +182,17 @@ forward(::BroadcastedOperator{typeof(log)}, x) = let
     return result
 end
 backward(::BroadcastedOperator{typeof(log)}, x, g) = let
-    logDerivative = 1.0 ./ x
+    if isa(g, Vector{Float64})
+        g = convert(Vector{Float32}, g)
+    end
+    if isa(x, Vector{Float64})
+        x = convert(Vector{Float32}, x)
+    end
+    # println("typeof g in log: $(typeof(g))")
+    # println("typeof x in log: $(typeof(x))")
+    # println(g)
+    logDerivative = 1.0f0 ./ x
+    # println(typeof(logDerivative))
     return tuple(logDerivative .* g)
 end
 
@@ -285,7 +314,9 @@ end
 backward(node::BroadcastedOperator{typeof(maxPool)}, input, poolSize::Vector{Int64}, g) = let
 # backward(node::BroadcastedOperator{typeof(maxPool)}, input::Array{Float64, 3}, poolSize::Vector{Int64}, g::Array{Float64, 3}) = let
     # println("typeof g in backward: $(typeof(g))")
+    # jakoś ogarnąć żeby były undefy
     result = zeros(size(input))
+    # result = Array{Float32, 3}(undef, size(input))
     inputWidth,inputHeight,inputChannels = size(input)
     
     output = node.output
@@ -302,7 +333,20 @@ backward(node::BroadcastedOperator{typeof(maxPool)}, input, poolSize::Vector{Int
             end
         end
     end
-
+    # for i in 1:size(result)[1]
+    #     for j in 1:size(result)[2]
+    #         for k in 1:size(result)[3]
+    #             if isnan(result[k,j,i])
+    #                 # println("setting")
+    #                 # println(result[i,j,k])
+    #                 result[k,i,j] = 0.0
+    #                 # println(result[i,j,k])
+    #             end
+    #         end
+    #     end
+    # end
+    # println(result)
+    # println("typeof result: $(typeof(result))")
     return tuple(result, 0.0)
 end
 
@@ -313,7 +357,8 @@ forward(::BroadcastedOperator{typeof(flatten)}, input::Array{Float32, 3}) = let
     # println("typeof reshape(input, length(input))", typeof(reshape(input, length(input))))
     return reshape(input, length(input))
 end
-backward(node::BroadcastedOperator{typeof(flatten)}, input::Array{Float32, 3}, g::Vector{Float64}) = let
+backward(node::BroadcastedOperator{typeof(flatten)}, input::Array{Float32, 3}, g::Vector{Float32}) = let
     # println("typeof g in backward: $(typeof(g))")
+    # println("typeof reshape(g, size(input))", typeof(reshape(g, size(input))))
     return tuple(reshape(g, size(input)))
 end
