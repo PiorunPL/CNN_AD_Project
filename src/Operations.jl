@@ -40,9 +40,22 @@ forward(::BroadcastedOperator{typeof(*)}, x, y) = let
 end
 backward(node::BroadcastedOperator{typeof(*)}, x, y, g) = let
     x, y = convert_to_float32(x, y)
+    # println("typeof x: $(typeof(x))")
+    # println("typeof y: $(typeof(y))")
     𝟏 = ones(length(node.output))
+    𝟏 = convert(Vector{Float32}, 𝟏)
+    # println("typeof 𝟏: $(typeof(𝟏))")
     Jx = diagm(y .* 𝟏)
+    # println("typeof Jx: $(typeof(Jx))")
     Jy = diagm(x .* 𝟏)
+    # println("typeof Jy: $(typeof(Jy))")
+    
+    if isa(g, Vector{Float64})
+        g = convert(Vector{Float32}, g)
+    end
+    # println("typeof Jx' * g: $(typeof(Jx' * g))")
+    # println("typeof Jy' * g: $(typeof(Jy' * g))")
+    # println("typeof g in *: $(typeof(g))")
     tuple(Jx' * g, Jy' * g)
 end
 
@@ -84,8 +97,12 @@ forward(::BroadcastedOperator{typeof(+)}, x, y) = let
     # end
     return x .+ y
 end
-backward(::BroadcastedOperator{typeof(+)}, x, y, g) = return tuple(g, g)
-
+backward(::BroadcastedOperator{typeof(+)}, x, y, g) = let
+    # println("typeof g in +: $(typeof(g))")
+    # println("typeof x in +: $(typeof(x))")
+    # println("typeof y in +: $(typeof(y))")
+    return tuple(g, g)
+end
 # Division
 Base.Broadcast.broadcasted(/, x::GraphNode, y::GraphNode) = BroadcastedOperator(/, x, y, name="/")
 forward(::BroadcastedOperator{typeof(/)}, x, y) = let 
@@ -231,12 +248,18 @@ forward(::BroadcastedOperator{typeof(conv)}, image::Array, filters::Array) = let
     # return convert(Array{Float32, 3}, result)
     return result
 end
-backward(node::BroadcastedOperator{typeof(conv)}, image, filters, g) = let
+# backward(node::BroadcastedOperator{typeof(conv)}, image, filters, g) = let
+backward(node::BroadcastedOperator{typeof(conv)}, image::Array{Float32, 3}, filters::Array{Float32, 4}, g::Array{Float32,3}) = let
 # backward(node::BroadcastedOperator{typeof(conv)}, image, filters::Array{Float32, 4}, g::Array{Float64, 3}) = let
     # println("typeof g in backward: $(typeof(g))")
     # Calculating backward of filters
-    filtersResult = zeros(size(filters))
+    # filtersResult = zeros(size(filters))
+    filtersResult = Array{Float32,4}(undef, size(filters))
     # println("typeof filtersResult: $(typeof(filtersResult))")
+    # println("typeof filtersResult: $(typeof(filtersResult))")
+    # println("typeof image: $(typeof(image))")
+    # println("typeof g in backward: $(typeof(g))")
+    # println("typeof filters: $(typeof(filters))")
 
     filterWidth = length(filters[:,1,1,1])
     filterHeight = length(filters[1,:,1,1])
@@ -259,21 +282,27 @@ backward(node::BroadcastedOperator{typeof(conv)}, image, filters, g) = let
     end
 
     reversedFilters = filters[end:-1:1, end:-1:1, :, :] 
+    # println("typeof reversedFilters: $(typeof(reversedFilters))")
     g_extended = zeros(2*(filterWidth-1)+outputWidth, 2*(filterHeight-1)+outputHeight, numberOfFilters)
+    # g_extended = Array{Float32,3}(undef, 2*(filterWidth-1)+outputWidth, 2*(filterHeight-1)+outputHeight, numberOfFilters)
     g_extended[filterWidth:(filterWidth+outputWidth-1), filterHeight:(filterHeight+outputHeight-1),:] = g
-    
+    # g_extended[isnan.(g_extended)] .= 0.0
+    # println(g_extended)
+    # println("typeof g_extended: $(typeof(g_extended))")
     inputWidth = length(image[:,1,1])
     inputHeight = length(image[1,:,1])
 
     # Prepare refersed filters matrices
-    filtersToCalculate = Array{Float64,4}(undef,filterWidth, filterHeight, outputChannels, filterChannels)
+    filtersToCalculate = Array{Float32,4}(undef,filterWidth, filterHeight, outputChannels, filterChannels)
     for i in 1:filterChannels
         for j in 1:outputChannels
             filtersToCalculate[:,:,j,i] = reversedFilters[:,:,i,j]
         end
     end
 
-    inputResult = zeros(size(image))   
+    # inputResult = zeros(size(image)) 
+    inputResult = Array{Float32,3}(undef, size(image))
+    # println("typeof inputResult: $(typeof(inputResult))")  
     # Tensors multiplication and addition for each element in image
     for i in 1:filterChannels
         for j in 1:inputWidth
@@ -314,8 +343,12 @@ end
 backward(node::BroadcastedOperator{typeof(maxPool)}, input, poolSize::Vector{Int64}, g) = let
 # backward(node::BroadcastedOperator{typeof(maxPool)}, input::Array{Float64, 3}, poolSize::Vector{Int64}, g::Array{Float64, 3}) = let
     # println("typeof g in backward: $(typeof(g))")
+    if isa(g, Array{Float64, 3})
+        g = convert(Array{Float32, 3}, g)
+    end
     # jakoś ogarnąć żeby były undefy
     result = zeros(size(input))
+    result = convert(Array{Float32, 3}, result)
     # result = Array{Float32, 3}(undef, size(input))
     inputWidth,inputHeight,inputChannels = size(input)
     

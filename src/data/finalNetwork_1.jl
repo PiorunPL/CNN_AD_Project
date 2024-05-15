@@ -142,6 +142,7 @@ function main()
         batch_update!(var_array, step, batchsize)
 
         accuracy = testNetwork(testData, test,testBatchSize, image, y)
+        println("Accuracy: ", accuracy)
         push!(accuracyArray, accuracy)
         push!(losses, currentloss)
         reset!(graph)
@@ -149,8 +150,8 @@ function main()
 
     # pushKittyDisplay!()
 
-    # plot(1:length(losses), losses, seriestype=:scatter) |> display
-    # plot(1:length(accuracyArray), accuracyArray, seriestype=:scatter) |> display
+    plot(1:length(losses), losses, seriestype=:scatter)
+    plot(1:length(accuracyArray), accuracyArray, seriestype=:scatter)
     # println("ttttt")
     println(typeof(trainDataset.features[:,:,40003]))
     image.output = trainDataset.features[:,:,40003]
