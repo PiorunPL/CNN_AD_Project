@@ -18,7 +18,14 @@ import LinearAlgebra: mul!
 # Multiplication
 *(A::GraphNode, x::GraphNode) = BroadcastedOperator(mul!, A, x, name="mul!")
 forward(::BroadcastedOperator{typeof(mul!)}, A, x) = let 
-    return A * x
+    # println("typeof A: $(typeof(A))")
+    # println("typeof x: $(typeof(x))")
+    result = A * x
+    # println("typeof result: $(typeof(result))")
+    if isa(result, Float64)
+        result = convert(Float32, result)
+    end
+    return result
 end
 backward(::BroadcastedOperator{typeof(mul!)}, A, x, g) = let
     tuple(g * x', A' * g)
@@ -97,7 +104,11 @@ end
 # Sum
 import Base: sum
 sum(x::GraphNode) = BroadcastedOperator(sum, x, name="sum")
-forward(::BroadcastedOperator{typeof(sum)}, x) = return sum(x)
+forward(::BroadcastedOperator{typeof(sum)}, x::Vector{Float32}) = let
+    # println("typeof x in sum: $(typeof(x))")
+    # println("typeof sum(x) in sum: $(typeof(sum(x)))")
+    return sum(x)
+end
 backward(::BroadcastedOperator{typeof(sum)}, x, g) = let
     𝟏 = ones(size(x))
     tuple(𝟏 .* g)
@@ -141,8 +152,16 @@ backward(node::BroadcastedOperator{typeof(^)}, x, y, g) = let
 end
 
 # log
-Base.Broadcast.broadcasted(log, x::GraphNode) = BroadcastedOperator(log, x, name="log")
-forward(::BroadcastedOperator{typeof(log)}, x) = return log.(x)
+Base.Broadcast.broadcasted(log, x::GraphNode) = BroadcastedOperator(log, x::GraphNode, name="log")
+forward(::BroadcastedOperator{typeof(log)}, x) = let 
+    # println("typeof x in log: $(typeof(x))")
+    # println("typeof log.(x) in log: $(typeof(log.(x)))")
+    result = log.(x)
+    if isa(result, Vector{Float64})
+        result = convert(Vector{Float32}, result)
+    end
+    return result
+end
 backward(::BroadcastedOperator{typeof(log)}, x, g) = let
     logDerivative = 1.0 ./ x
     return tuple(logDerivative .* g)
@@ -155,7 +174,7 @@ end
 conv(image::GraphNode, filters::GraphNode) = BroadcastedOperator(conv, image::GraphNode, filters::GraphNode, name="Convolution")
 # forward(::BroadcastedOperator{typeof(conv)}, image::Matrix{Float32}, filters::Array{Float64}) = forward(reshape(convert(Array{Float64}, image), size(image)[1], size(image)[2], 1), filters)
 # forward ma output git - array{Float32}
-forward(::BroadcastedOperator{typeof(conv)}, image, filters) = let
+forward(::BroadcastedOperator{typeof(conv)}, image::Array, filters::Array) = let
     # println("typeof image: $(typeof(image))")
     # println("typeof filters: $(typeof(filters))")
     # filters is an array of filters
