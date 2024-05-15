@@ -1,4 +1,4 @@
-function batch_process(net::Vector{GraphNode}, data_arr::Vector{Tuple{Array{Float32, 3}, Int64}}, input_node::Variable, output_node::Variable, expected_output::Vector{Float32})
+function batch_process(net, data_arr, input_node, output_node, expected_output)
     loss = 0.0
     for data in data_arr
         input_node.output = data[1]
@@ -11,13 +11,13 @@ function batch_process(net::Vector{GraphNode}, data_arr::Vector{Tuple{Array{Floa
     return loss
 end
 
-function batch_update!(node_arr::Vector{Variable}, step::Float32, batchsize::Int64)
+function batch_update!(node_arr, step, batchsize)
     for node in node_arr
         node.output -= step.*(node.gradient./batchsize)
     end
 end
 
-function testNetwork(testData::Vector{Tuple{Array{Float32, 3}, Int64}}, graph::Vector{GraphNode}, batchsize::Int64, image::Variable, y::Variable)
+function testNetwork(testData, graph, batchsize, image, y)
     shuffle!(testData)
     accuracy = 0
     for i in 1:batchsize

@@ -1,4 +1,4 @@
-function mean_squared_loss(y, ŷ, n::Int64)
+function mean_squared_loss(y, ŷ, n)
     return sum( (y .- ŷ) .^ Constant(2) ) ./ Constant(n)
 end
 
