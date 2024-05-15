@@ -1,7 +1,7 @@
 # Functions to create a graph
 
 # Visit
-function visit(node::GraphNode, visited, order)
+function visit(node::GraphNode, visited::Set{GraphNode}, order::Vector{GraphNode})
     if node ∈ visited
     else
         push!(visited, node)
@@ -10,7 +10,7 @@ function visit(node::GraphNode, visited, order)
     return nothing
 end
 
-function visit(node::Operator, visited, order)
+function visit(node::Operator, visited::Set{GraphNode}, order::Vector{GraphNode})
     if node ∈ visited
     else
         push!(visited, node)
@@ -24,8 +24,8 @@ end
 
 # Sort
 function topological_sort(head::GraphNode)
-    visited = Set()
-    order = Vector()
+    visited = Set{GraphNode}()
+    order = Vector{GraphNode}()
     visit(head, visited, order)
     return order
 end
