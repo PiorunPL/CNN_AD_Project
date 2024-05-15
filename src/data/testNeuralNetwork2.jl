@@ -66,7 +66,7 @@ Starting batch $j in epoch $i
         
         currentloss += first(forward!(graph))
         @info("Current loss: $currentloss")
-        backward!(graph)
+        @code_warntype backward!(graph)
     end
 
     #if i == 1
