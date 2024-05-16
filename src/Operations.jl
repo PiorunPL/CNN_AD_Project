@@ -5,15 +5,15 @@ import LinearAlgebra: mul!
 
 ^(x::GraphNode, n::GraphNode) = ScalarOperator(^, [x, n], name="^")
 forward(::ScalarOperator{typeof(^)}, x, n) = return x^n
-backward(::ScalarOperator{typeof(^)}, x, n, g) = tuple(g * n * x^(n-1), g * log(abs(x)) * x^n)
+backward(::ScalarOperator{typeof(^)}, output, x, n, g) = tuple(g * n * x^(n-1), g * log(abs(x)) * x^n)
 
 sin(x::GraphNode) = ScalarOperator(sin, x, name="sin")
 forward(::ScalarOperator{typeof(sin)}, x) = return sin(x)
-backward(::ScalarOperator{typeof(sin)}, x, g) = return tuple(g * cos(x))
+backward(::ScalarOperator{typeof(sin)}, output, x, g) = return tuple(g * cos(x))
 
 *(x::GraphNode, y::GraphNode) = ScalarOperator(*, [x, y], name="*")
 forward(::ScalarOperator{typeof(*)}, x, y) = return x * y
-backward(::ScalarOperator{typeof(*)}, x, y, g) = return tuple(y * g, x * g)
+backward(::ScalarOperator{typeof(*)}, output, x, y, g) = return tuple(y * g, x * g)
 
 # Broadcasted Operators
 
@@ -27,7 +27,7 @@ forward(::BroadcastedOperator{typeof(mul!)}, A, x, preallocated_result, prealloc
     # end
     return preallocated_result
 end
-backward(::BroadcastedOperator{typeof(mul!)}, A, x, preallocated_result, preallocated_A, preallocated_x, g) = let
+backward(::BroadcastedOperator{typeof(mul!)}, output, A, x, preallocated_result, preallocated_A, preallocated_x, g) = let
     # println("size of g: ", size(g))
     # println("size of A: ", size(A))
     # println("size of x: ", size(x))
@@ -40,8 +40,8 @@ Base.Broadcast.broadcasted(*, x::GraphNode, y::GraphNode) = BroadcastedOperator(
 forward(::BroadcastedOperator{typeof(*)}, x::Vector{Float32}, y::Vector{Float32}) = let 
     return x .* y
 end
-backward(node::BroadcastedOperator{typeof(*)}, x::Vector{Float32}, y::Vector{Float32}, g) = let
-    𝟏 = ones(length(node.output))
+backward(node::BroadcastedOperator{typeof(*)}, output, x::Vector{Float32}, y::Vector{Float32}, g) = let
+    𝟏 = ones(length(output))
     𝟏 = convert(Vector{Float32}, 𝟏)
     Jx = diagm(y .* 𝟏)
     Jy = diagm(x .* 𝟏)
@@ -53,14 +53,14 @@ Base.Broadcast.broadcasted(-, x::GraphNode, y::GraphNode) = BroadcastedOperator(
 forward(::BroadcastedOperator{typeof(-)}, x, y) = let
     return x .- y
 end
-backward(::BroadcastedOperator{typeof(-)}, x, y, g) = return tuple(g, -g)
+backward(::BroadcastedOperator{typeof(-)}, output, x, y, g) = return tuple(g, -g)
 
 # Addition
 Base.Broadcast.broadcasted(+, x::GraphNode, y::GraphNode) = BroadcastedOperator(+, (size(x.output)), [x::GraphNode, y::GraphNode], name="+")
 forward(::BroadcastedOperator{typeof(+)}, x, y) = let
     return x .+ y
 end
-backward(::BroadcastedOperator{typeof(+)}, x, y, g) = let
+backward(::BroadcastedOperator{typeof(+)}, output, x, y, g) = let
     return tuple(g, g)
 end
 
@@ -82,7 +82,7 @@ sum(x::GraphNode) = ScalarOperator(sum, [x::GraphNode], name="sum")
 forward(::ScalarOperator{typeof(sum)}, x::Vector{Float32}) = let
     return sum(x)
 end
-backward(::ScalarOperator{typeof(sum)}, x::Vector{Float32}, g) = let
+backward(::ScalarOperator{typeof(sum)}, output, x::Vector{Float32}, g) = let
     g = Float32(g)
     𝟏 = ones(size(x))
     𝟏 = convert(Vector{Float32}, 𝟏)
@@ -109,7 +109,7 @@ forward(::BroadcastedOperator{typeof(max)}, x, y) = let
     end
     return max.(x, y)
 end
-backward(::BroadcastedOperator{typeof(max)}, x, y, g) = let
+backward(::BroadcastedOperator{typeof(max)}, output, x, y, g) = let
     if isa(y, Float64)
         y = convert(Float32, y)
     end
@@ -153,7 +153,7 @@ Base.Broadcast.broadcasted(log, x::GraphNode) = BroadcastedOperator(log, (size(x
 forward(::BroadcastedOperator{typeof(log)}, x::Vector{Float32}) = let 
     return log.(x)
 end
-backward(::BroadcastedOperator{typeof(log)}, x::Vector{Float32}, g) = let
+backward(::BroadcastedOperator{typeof(log)}, output, x::Vector{Float32}, g) = let
     # println("typeof g", typeof(g))
     # println("size of g", size(g))
     # if isa(g, Matrix)
@@ -204,10 +204,10 @@ forward(node::BroadcastedOperator{typeof(conv)}, image::Array{Float32, 3}, filte
     # return result
     return outputResult
 end
-backward(node::BroadcastedOperator{typeof(conv)}, image::Array{Float32, 3}, filters::Array{Float32, 4}, inputResult::Array{Float32, 3}, filtersResult::Array{Float32, 4}, outputResult::Array{Float32,3}, g::Array{Float32, 3}) = let
+backward(node::BroadcastedOperator{typeof(conv)}, output, image::Array{Float32, 3}, filters::Array{Float32, 4}, inputResult::Array{Float32, 3}, filtersResult::Array{Float32, 4}, outputResult::Array{Float32,3}, g::Array{Float32, 3}) = let
 
     filterHeight, filterWidth, filterChannels, numberOfFilters = size(filters)
-    outputHeight, outputWidth, outputChannels = size(node.output)
+    outputHeight, outputWidth, outputChannels = size(output)
 
     fill!(filtersResult, 0.0f0)
     # @inbounds for l in 1:numberOfFilters,
@@ -254,15 +254,16 @@ forward(node::BroadcastedOperator{typeof(maxPool)}, input::Array{Float32, 3}, po
     end
     return output
 end
-backward(node::BroadcastedOperator{typeof(maxPool)}, input::Array{Float32, 3}, poolSize::Vector{Int64}, res::Array{Float32, 3}, g::Array{Float32, 3}) = let
+backward(node::BroadcastedOperator{typeof(maxPool)}, output, input::Array{Float32, 3}, poolSize::Vector{Int64}, res::Array{Float32, 3}, g::Array{Float32, 3}) = let
     # result = zeros(Float32, size(input))
     res = fill!(res, 0.0f0)
     # result = convert(Array{Float32, 3}, result)
     inputWidth,inputHeight,inputChannels = size(input)
     
     # output = node.output
-    outputWidth,outputHeight,outputChannels = size(node.output)
+    outputWidth,outputHeight,outputChannels = size(output)
     
+    # copy = @view node.output[:,:,:]
     @inbounds for i in 1:inputChannels
         for k in 1:(outputHeight*2)
             for j in 1:(outputWidth*2)
@@ -271,7 +272,9 @@ backward(node::BroadcastedOperator{typeof(maxPool)}, input::Array{Float32, 3}, p
                 row_number = trunc(Int32,(j-1)/2)+1
                 col_number = trunc(Int32,(k-1)/2)+1
                 # println("iffffffffffffffffff")
-                if input[j,k,i] == node.output[row_number, col_number, i]
+                # println("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+                # @time a = 
+                if input[j,k,i] == output[row_number, col_number, i]
                     # println("insideeeeeeeeeeeeeeeeeeee iffffffffffffffffffff")
                     res[j,k,i] = g[row_number, col_number, i]
                     # println("LETS GOOOOOOOOOOOOOOOOOOO")
@@ -288,6 +291,6 @@ flatten(input::GraphNode) = BroadcastedOperator(flatten, (size(input.output,1)*s
 forward(::BroadcastedOperator{typeof(flatten)}, input::Array{Float32, 3}) = let
     return reshape(input, length(input))
 end
-backward(node::BroadcastedOperator{typeof(flatten)}, input::Array{Float32, 3}, g::Vector{Float32}) = let
+backward(node::BroadcastedOperator{typeof(flatten)}, output, input::Array{Float32, 3}, g::Vector{Float32}) = let
     return tuple(reshape(g, size(input)))
 end

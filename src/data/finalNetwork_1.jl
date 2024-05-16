@@ -5,6 +5,7 @@ using MLDatasets: MNIST
 using Random
 using Plots
 using ProfileView
+# using BenchmarkTools
 
 include("../Models.jl")
 include("../ActivationFunctions.jl")
@@ -106,10 +107,10 @@ function main()
 
     losses = Float64[]
     batchsize = 100
-    testBatchSize = 100
-    batchsize_gradient = 100#batchsize
-    numberOfBatchesInEpoch = length(trainDataset.targets)/batchsize
-    epochs = 600
+    testBatchSize = 10000
+
+    numberOfBatchesInEpoch = trunc(Int32, length(trainDataset.targets)/batchsize)
+    epochs = 3
     step = 0.01f0
 
     shuffle!(trainData)
@@ -121,22 +122,24 @@ function main()
     push!(accuracyArray, accuracy)
 
     expectedOutput = Array{Float32}(undef,10)
+    for j in 1:epochs
+        @time @showprogress for i in 1:numberOfBatchesInEpoch
+        # @showprogress for i in 1:epochs
+        #     @info("
+        # --------------------------------------------------------------
+        # Starting epoch $i
+        # --------------------------------------------------------------")
+            currentloss = batch_process(graph,trainData[(i-1)*batchsize+1:i*batchsize], image, y, expectedOutput)
+            batch_update!(var_array, step, batchsize)
 
-    @time @showprogress for i in 1:epochs
-    # @showprogress for i in 1:epochs
-    #     @info("
-    # --------------------------------------------------------------
-    # Starting epoch $i
-    # --------------------------------------------------------------")
-        currentloss = batch_process(graph,trainData[(i-1)*batchsize+1:i*batchsize], image, y, expectedOutput)
-        batch_update!(var_array, step, batchsize)
-
+            reset!(graph)
+        end
         accuracy = testNetwork(testData, test,testBatchSize, image, y)
-        println("Loss: ", currentloss)
+        # println("Loss: ", currentloss)
         println("Accuracy: ", accuracy)
         push!(accuracyArray, accuracy)
-        push!(losses, currentloss)
-        reset!(graph)
+        # push!(losses, currentloss)
+        shuffle!(trainData)
     end
 
     # pushKittyDisplay!()

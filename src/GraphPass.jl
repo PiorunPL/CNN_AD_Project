@@ -35,7 +35,7 @@ function backward!(order::Vector; seed=1.0)
         # println("Node: ", node.name)
         # @time backward!(node)
         # else
-        backward!(node)
+        # backward!(node)
         # end
     end
     # a = a + 1
@@ -49,7 +49,7 @@ function backward!(node::Constant) end
 function backward!(node::Variable) end
 function backward!(node::Operator)
     inputs = node.inputs
-    gradients = backward(node, [input.output for input in inputs]..., node.gradient)
+    gradients = backward(node, node.output, [input.output for input in inputs]..., node.gradient)
     for (input, gradient) in zip(inputs, gradients)
         # if isa(gradient, Float64) || isa(gradient, Int64)
         #     update_graph!(input, gradient)

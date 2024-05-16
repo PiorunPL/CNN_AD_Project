@@ -20,8 +20,8 @@ forward(::BroadcastedOperator{typeof(softmax)}, x::Vector{Float32}) = let
     # println("typeof exp.(x) ./ sum(exp.(x)): ", typeof(exp.(x) ./ sum(exp.(x))))
     return exp.(x) ./ sum(exp.(x))
 end
-backward(node::BroadcastedOperator{typeof(softmax)}, x::Vector{Float32}, g::Vector{Float32}) = let
-    y = node.output
+backward(node::BroadcastedOperator{typeof(softmax)}, output, x::Vector{Float32}, g::Vector{Float32}) = let
+    y = output
     J = diagm(y) .- y * y'
     tuple(J' * g)
 end
