@@ -7,24 +7,24 @@ struct Constant{T} <: GraphNode
 end
 
 mutable struct Variable <: GraphNode
-    output::Any
-    gradient::Any
+    output::Array{Float32}
+    gradient::Array{Float32}
     name::String
-    Variable(output; name="?") = new(output, nothing, name)
+    Variable(output; name="?") = new(output, zeros(Float32,size(output)), name)
 end
 
 mutable struct ScalarOperator{F} <: Operator
-    inputs::Any
-    output::Any
-    gradient::Any
+    inputs::Vector{GraphNode}
+    output::Float32
+    gradient::Float32
     name::String
-    ScalarOperator(fun, inputs...; name="?") = new{typeof(fun)}(inputs, nothing, nothing, name)
+    ScalarOperator(fun, inputs; name="?") = new{typeof(fun)}(inputs, 0, 0, name)
 end
 
 mutable struct BroadcastedOperator{F} <: Operator
-    inputs::Any
-    output::Any
-    gradient::Any
+    inputs::Vector{GraphNode}
+    output::Array{Float32}
+    gradient::Array{Float32}
     name::String
-    BroadcastedOperator(fun, inputs...; name="?") = new{typeof(fun)}(inputs, nothing, nothing, name)
+    BroadcastedOperator(fun, output_size, inputs; name="?") = new{typeof(fun)}(inputs, zeros(Float32, output_size), zeros(Float32,output_size), name)
 end

@@ -3,7 +3,7 @@ using ProgressMeter
 using Logging
 using MLDatasets: MNIST
 using Random
-using Plots, KittyTerminalImages
+using Plots
 using ProfileView
 
 include("../Models.jl")
@@ -26,6 +26,7 @@ function net(image::Variable, filters1::Variable, filters2::Variable, wages1::Va
         # konwolucja git, jest typu array{float32, 3}
     a = conv(image, filters1)
     a.name = "a Convolution"
+    # a.output = zeros(Float32, 26, 26, 6)
     a1 = bias(a, bias1)
     a1.name = "a1 Bias"
     # relu chyba ok
@@ -33,9 +34,11 @@ function net(image::Variable, filters1::Variable, filters2::Variable, wages1::Va
     a2.name = "a2 ReLU"
     # maxpool chyab ok
     b = maxPool(a2, Constant([2,2]))
+
     b.name = "b MaxPool"
     c = conv(b, filters2)
     c.name = "c Convolution"
+    # c.output = zeros(Float32, 11, 11, 16)
     c1 = bias(c, bias2)
     c1.name = "c1 Bias"
     c2 = relu(c1)
@@ -66,16 +69,16 @@ function main()
     bias3 = Variable(glorot_uniform(84, Int32(84)), name="Bias 3")
     bias4 = Variable(glorot_uniform(10, Int32(10)), name="Bias 4")
 
-    println("typeof image", typeof(image.output))
-    println("typeof filters1", typeof(filters1.output))
-    println("typeof filters2", typeof(filters2.output))
-    println("typeof wages1", typeof(wages1.output))
-    println("typeof wages2", typeof(wages2.output))
-    println("typeof y", typeof(y.output))
-    println("typeof bias1", typeof(bias1.output))
-    println("typeof bias2", typeof(bias2.output))
-    println("typeof bias3", typeof(bias3.output))
-    println("typeof bias4", typeof(bias4.output))
+    # println("typeof image", typeof(image.output))
+    # println("typeof filters1", typeof(filters1.output))
+    # println("typeof filters2", typeof(filters2.output))
+    # println("typeof wages1", typeof(wages1.output))
+    # println("typeof wages2", typeof(wages2.output))
+    # println("typeof y", typeof(y.output))
+    # println("typeof bias1", typeof(bias1.output))
+    # println("typeof bias2", typeof(bias2.output))
+    # println("typeof bias3", typeof(bias3.output))
+    # println("typeof bias4", typeof(bias4.output))
     
 
     var_array = Variable[filters1, filters2, wages1, wages2, bias1, bias2, bias3, bias4]
@@ -106,6 +109,7 @@ function main()
     expectedOutput = Array{Float32}(undef,10)
 
     @time @showprogress for i in 1:epochs
+    # @showprogress for i in 1:epochs
         @info("
     --------------------------------------------------------------
     Starting epoch $i
@@ -113,7 +117,8 @@ function main()
         currentloss = batch_process(graph,trainData[(i-1)*batchsize+1:i*batchsize], image, y, expectedOutput)
         batch_update!(var_array, step, batchsize)
 
-        # accuracy = testNetwork(testData, test,testBatchSize, image, y)
+        accuracy = testNetwork(testData, test,testBatchSize, image, y)
+        println("Loss: ", currentloss)
         println("Accuracy: ", accuracy)
         push!(accuracyArray, accuracy)
         push!(losses, currentloss)
