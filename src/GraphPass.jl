@@ -20,10 +20,10 @@ end
 # global a = 1
 # Backward pass
 function backward!(order::Vector; seed=1.0)
-    # println("=====================================================")
-    # println("=====================================================")
-    # println("=====================================================")
-    # println("=====================================================")
+    println("=====================================================")
+    println("=====================================================")
+    println("=====================================================")
+    println("=====================================================")
     result = last(order)
     result.gradient = seed
     @assert length(result.output) == 1 "Gradient is defined only for scalar functions"
@@ -32,10 +32,10 @@ function backward!(order::Vector; seed=1.0)
             continue
         end
         # if a == 2
-        # println("Node: ", node.name)
-        # @time backward!(node)
+        println("Node: ", node.name)
+        @time backward!(node)
         # else
-        backward!(node)
+        # backward!(node)
         # end
     end
     # a = a + 1

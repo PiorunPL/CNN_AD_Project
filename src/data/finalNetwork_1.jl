@@ -33,7 +33,8 @@ function net(image::Variable, filters1::Variable, filters2::Variable, wages1::Va
     a1 = bias(a, bias1)
     a1.name = "a1 Bias"
     # relu chyba ok
-    a2 = relu(a1)
+    a2_preallocated = Constant(zeros(Float32, 26, 26, 6))
+    a2 = relu(a1, a2_preallocated)
     a2.name = "a2 ReLU"
     # maxpool chyab ok
     b_max_pool_res_preallocation = zeros(Float32, 26, 26, 6)
@@ -47,7 +48,8 @@ function net(image::Variable, filters1::Variable, filters2::Variable, wages1::Va
     # c.output = zeros(Float32, 11, 11, 16)
     c1 = bias(c, bias2)
     c1.name = "c1 Bias"
-    c2 = relu(c1)
+    c_relu_preallocated = Constant(zeros(Float32, 11, 11, 16))
+    c2 = relu(c1, c_relu_preallocated)
     c2.name = "c2 ReLU"
     d_max_pool_res_preallocation = zeros(Float32, 11, 11, 16)
     d = maxPool(c2, Constant([2,2]), Constant(d_max_pool_res_preallocation))
@@ -56,11 +58,13 @@ function net(image::Variable, filters1::Variable, filters2::Variable, wages1::Va
     e.name = "e Flatten"
     f_preallocated_A = Constant(zeros(Float32, 400))
     f_preallocated_x = Constant(zeros(Float32, 84, 400))
-    f = dense(wages1, e, bias3, relu, f_preallocated_x, f_preallocated_A)
+    f = dense(wages1, e, bias3, f_preallocated_x, f_preallocated_A)
     f.name = "f Dense"
+    f_relu_preallocated = Constant(zeros(Float32, 84))
+    f_relu = relu(f, f_relu_preallocated)
     g_preallocated_A = Constant(zeros(Float32, 84))
     g_preallocated_x = Constant(zeros(Float32, 10, 84))
-    g = dense(wages2, f, bias4, softmax, g_preallocated_x, g_preallocated_A)
+    g = dense(wages2, f_relu, bias4, softmax, g_preallocated_x, g_preallocated_A)
     g.name = "g Dense"
     loss = cross_entropy(y, g)
     loss.name = "Loss"

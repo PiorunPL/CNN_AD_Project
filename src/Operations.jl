@@ -116,22 +116,25 @@ end
 # end
 
 import Base: max
-Base.Broadcast.Broadcast(max, x::GraphNode, y::GraphNode) = BroadcastedOperator(max, (size(x.output)), [x::GraphNode , y::GraphNode], name="max")
-forward(::BroadcastedOperator{typeof(max)}, output, x, y) = let 
+max(x::GraphNode, y::GraphNode, preallocated_backward_result::Constant) = BroadcastedOperator(max, (size(x.output)), [x::GraphNode, y::GraphNode, preallocated_backward_result::Constant], name="max")
+forward(::BroadcastedOperator{typeof(max)}, output, x, y, preallocated_backward_result) = let 
     # if isa(y, Float64)
     #     y = convert(Float32, y)
     # end
-     @simd for i in eachindex(output)
+    @inbounds @simd for i in eachindex(output)
         output[i] = max(x[i], y)
     end
     return output
 end
-backward(::BroadcastedOperator{typeof(max)}, output, x, y, g) = let
+backward(::BroadcastedOperator{typeof(max)}, output, x, y, preallocated_backward_result, g) = let
     # if isa(y, Float64)
     #     y = convert(Float32, y)
     # end
-    Jx = isless.(y,x)
-    tuple(Jx .* g, 0.0f0)
+    @inbounds @simd for i in eachindex(preallocated_backward_result)
+        preallocated_backward_result[i] = isless(y, x[i])*g[i]
+    end
+    # Jx = isless.(y,x)
+    tuple(preallocated_backward_result, 0.0f0)
 end
 
 # Max
