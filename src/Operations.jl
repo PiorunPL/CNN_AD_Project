@@ -206,112 +206,49 @@ forward(node::BroadcastedOperator{typeof(conv)}, image::Array{Float32, 3}, filte
     return result
 end
 backward(node::BroadcastedOperator{typeof(conv)}, image::Array{Float32, 3}, filters::Array{Float32, 4}, g::Array{Float32, 3}) = let
-    # filtersResult = Array{Float32,4}(undef, size(filters))
 
     filterHeight, filterWidth, filterChannels, numberOfFilters = size(filters)
     outputHeight, outputWidth, outputChannels = size(node.output)
-    imageHeight, imageWidth, imageChannels = size(image)
 
-    # @inbounds @views for n in 1:numberOfFilters
-    #     glayer=g[:,:,n]
-    #     @inbounds for i in 1:filterChannels
-    #         @inbounds for k in 1:filterWidth
-    #             @inbounds  for j in 1:filterHeight
-    #                 filtersResult[j,k,i,n] = sum(image[j:(j+outputWidth - 1),k:(k+outputHeight-1), i].*glayer)
-    #             end
-    #         end
-    #     end
-    # end
-    
     filtersResult = zeros(Float32, size(filters))
-    for l in 1:numberOfFilters,
-       k in 1:filterChannels,
-       i in 1:filterWidth,
-       m in 1:outputWidth,
-       j in 1:filterHeight,
-       n in 1:outputHeight
-           filtersResult[j,i,k,l] += image[j+n-1,i+m-1,k]*g[n,m,l]
-    end
-
-    # @time for k in 1:filterChannels,
-    #     i in 1:filterWidth,
-    #     j in 1:filterHeight,
-    #     l in 1:numberOfFilters,
-    #     m in 1:outputWidth,
-    #     n in 1:outputHeight
+    # @inbounds for l in 1:numberOfFilters,
+    #    k in 1:filterChannels,
+    #    i in 1:filterWidth,
+    #    m in 1:outputWidth,
+    #    j in 1:filterHeight,
+    #    n in 1:outputHeight
     #        filtersResult[j,i,k,l] += image[j+n-1,i+m-1,k]*g[n,m,l]
     # end
 
     inputResult = zeros(Float32, size(image))
 
-    # @inbounds for i in 1:targetChannels,
-    #     j in 1:imageChannels,
-    #     filterCol in 1:filterWidth,
-    #     k in 1:targetWidth,
-    #     l in 1:targetHeight,
-    #     m in 1:filterHeight
-    #         result[l,k,i] += image[l+m-1,filterCol+k-1,j]*filters[m,filterCol,j,i]
-    # end
     @inbounds for i in 1:outputChannels,
-        l in 1:imageChannels,
+        l in 1:filterChannels,
         filterCol in 1:filterWidth,
         k in 1:outputWidth,
         m in 1:outputHeight,
         n in 1:filterHeight
-            # filtersResult[n,filterCol,l,i] += image[m+n-1,filterCol+k-1,l]*g[m,k,i]
+            filtersResult[n,filterCol,l,i] += image[m+n-1,filterCol+k-1,l]*g[m,k,i]
             inputResult[m+n-1,k+filterCol-1,l] += filters[n,filterCol,l,i] * g[m,k,i]    
     end
 
-    # reversedFilters = @view filters[end:-1:1, end:-1:1, :, :] 
-    # g_extended = zeros(2*(filterWidth-1)+outputWidth, 2*(filterHeight-1)+outputHeight, numberOfFilters)
-    # g_extended[filterWidth:(filterWidth+outputWidth-1), filterHeight:(filterHeight+outputHeight-1),:] = g
-    
-    # inputWidth = length(@view image[:,1,1])
-    # inputHeight = length(@view image[1,:,1])
-
-
-    # # Prepare refersed filters matrices
-    # filtersToCalculate = Array{Float32,4}(undef,filterWidth, filterHeight, outputChannels, filterChannels)
-    # @inbounds for i in 1:filterChannels
-    #     @inbounds for j in 1:outputChannels
-    #         filtersToCalculate[:,:,j,i] = @view reversedFilters[:,:,i,j]
-    #     end
-    # end
-
-    # inputResult = Array{Float32,3}(undef, size(image))
-
-    # # Tensors multiplication and addition for each element in image
-    # @inbounds @views for i in 1:filterChannels
-    #     filterCalc = filtersToCalculate[:,:,:,i]
-    #     @inbounds for j in 1:inputWidth
-    #         jCalc = (j+filterWidth-1)
-    #         @inbounds @views for k in 1:inputHeight
-    #             inputResult[k,j,i] = sum(g_extended[k:(k+filterHeight-1),j:jCalc, :].*filterCalc)
-    #         end
-    #     end
-    # end
-
-    # println("typeof inputResult ", typeof(inputResult))
-    # println("typeof filtersResult ", typeof(filtersResult))
     return tuple(inputResult, filtersResult)
 end
 
 #MaxPool
 maxPool(input::GraphNode, poolSize::GraphNode) = BroadcastedOperator(maxPool, (floor(Int32, size(input.output,1)/poolSize.output[1]), floor(Int32, size(input.output,2)/poolSize.output[2]), size(input.output,3)), [input::GraphNode, poolSize::Constant], name="Max Pool")
 forward(node::BroadcastedOperator{typeof(maxPool)}, input::Array{Float32, 3}, poolSize::Vector{Int64}) = let
-    inputWidth = length(input[:,1,1])
-    inputHeight = length(input[1,:,1])
-    inputChannels = length(input[1,1,:])
+    inputHeight, inputWidth, inputChannels = size(input)
 
     outputWidth = floor(Int32, inputWidth/poolSize[1])
     outputHeight = floor(Int32, inputHeight/poolSize[2])
 
-    output = Array{Float32,3}(undef, outputWidth, outputHeight, inputChannels)
+    output = Array{Float32,3}(undef, outputHeight, outputWidth, inputChannels)
 
-    for i in 1:inputChannels
-        for j in 1:outputWidth
-            for k in 1:outputHeight
-                output[j,k,i] = maximum(input[(2*j-1):(2*j-1+poolSize[1]-1),(2*k-1):(2*k-1+poolSize[2]-1), i])
+    @inbounds for i in 1:inputChannels
+        for k in 1:outputWidth
+            for j in 1:outputHeight
+                output[j,k,i] = maximum(@view input[(2*j-1):(2*j-1+poolSize[1]-1),(2*k-1):(2*k-1+poolSize[2]-1), i])
             end
         end
     end
@@ -325,7 +262,7 @@ backward(node::BroadcastedOperator{typeof(maxPool)}, input::Array{Float32, 3}, p
     output = node.output
     outputWidth,outputHeight,outputChannels = size(output)
 
-    for i in 1:inputChannels
+    @inbounds for i in 1:inputChannels
         for k in 1:(outputHeight*2)
             for j in 1:(outputWidth*2)
                 if input[j,k,i] == output[floor(Int,(j-1)/2)+1, floor(Int,(k-1)/2)+1, i]

@@ -95,7 +95,7 @@ function main()
     testBatchSize = 100
     batchsize_gradient = 100#batchsize
     numberOfBatchesInEpoch = length(trainDataset.targets)/batchsize
-    epochs = 200
+    epochs = 600
     step = 0.01f0
 
     shuffle!(trainData)
