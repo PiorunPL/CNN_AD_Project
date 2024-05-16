@@ -19,15 +19,15 @@ backward(::ScalarOperator{typeof(*)}, output, x, y, g) = return tuple(y * g, x *
 
 
 # Multiplication
-mul(A::GraphNode, x::GraphNode, preallocated_result::Constant, preallocated_A::Constant, preallocated_x::Constant) = BroadcastedOperator(mul!,size(x.output,2) == 1 ? (size(A.output,1)) : (size(A.output,1), size(x.output,2)), [A, x, preallocated_result, preallocated_A, preallocated_x], name="mul!")
-forward(::BroadcastedOperator{typeof(mul!)}, output, A, x, preallocated_result, preallocated_A, preallocated_x) = let 
-    mul!(preallocated_result, A, x)
+mul(A::GraphNode, x::GraphNode, preallocated_A::Constant, preallocated_x::Constant) = BroadcastedOperator(mul!,size(x.output,2) == 1 ? (size(A.output,1)) : (size(A.output,1), size(x.output,2)), [A, x, preallocated_A, preallocated_x], name="mul!")
+forward(::BroadcastedOperator{typeof(mul!)}, output, A, x, preallocated_A, preallocated_x) = let 
+    mul!(output, A, x)
     # if isa(result, Float64)
     #     result = convert(Float32, result)
     # end
-    return preallocated_result
+    return output
 end
-backward(::BroadcastedOperator{typeof(mul!)}, output, A, x, preallocated_result, preallocated_A, preallocated_x, g) = let
+backward(::BroadcastedOperator{typeof(mul!)}, output, A, x, preallocated_A, preallocated_x, g) = let
     # println("size of g: ", size(g))
     # println("size of A: ", size(A))
     # println("size of x: ", size(x))
@@ -38,7 +38,10 @@ end
 
 Base.Broadcast.broadcasted(*, x::GraphNode, y::GraphNode) = BroadcastedOperator(*, (size(x.output)), [x::GraphNode, y::GraphNode], name="*")
 forward(::BroadcastedOperator{typeof(*)}, output, x::Vector{Float32}, y::Vector{Float32}) = let 
-    return x .* y
+    @inbounds @simd for i in eachindex(output)
+        output[i] = x[i] * y[i]
+    end
+    return output
 end
 backward(node::BroadcastedOperator{typeof(*)}, output, x::Vector{Float32}, y::Vector{Float32}, g) = let
     𝟏 = ones(length(output))
@@ -59,7 +62,7 @@ backward(::BroadcastedOperator{typeof(-)}, output, x, y, g) = return tuple(g, -g
 Base.Broadcast.broadcasted(+, x::GraphNode, y::GraphNode) = BroadcastedOperator(+, (size(x.output)), [x::GraphNode, y::GraphNode], name="++")
 forward(node::BroadcastedOperator{typeof(+)}, output, x, y) = let
 
-    for i in eachindex(output)
+    @inbounds @simd for i in eachindex(output)
         output[i] = x[i] + y[i]
     end
     # return x .+ y
@@ -110,10 +113,13 @@ end
 import Base: max
 Base.Broadcast.Broadcast(max, x::GraphNode, y::GraphNode) = BroadcastedOperator(max, (size(x.output)), [x::GraphNode , y::GraphNode], name="max")
 forward(::BroadcastedOperator{typeof(max)}, output, x, y) = let 
-    if isa(y, Float64)
-        y = convert(Float32, y)
+    # if isa(y, Float64)
+    #     y = convert(Float32, y)
+    # end
+    @inbounds @simd for i in eachindex(output)
+        output[i] = max(x[i], y[i])
     end
-    return max.(x, y)
+    return output
 end
 backward(::BroadcastedOperator{typeof(max)}, output, x, y, g) = let
     if isa(y, Float64)
@@ -157,7 +163,11 @@ end
 # log
 Base.Broadcast.broadcasted(log, x::GraphNode) = BroadcastedOperator(log, (size(x.output)), [x::GraphNode], name="log")
 forward(::BroadcastedOperator{typeof(log)}, output, x::Vector{Float32}) = let 
-    return log.(x)
+    # return log.(x)
+    @inbounds @simd for i in eachindex(output)
+        output[i] = log(x[i])
+    end
+    return output
 end
 backward(::BroadcastedOperator{typeof(log)}, output, x::Vector{Float32}, g) = let
     # println("typeof g", typeof(g))
@@ -173,8 +183,8 @@ end
 # Needed for Convolution implementation
 ############################################################################
 # Convolution
-conv(image::GraphNode, filters::GraphNode, inputResult::GraphNode, filtersResult::GraphNode, outputResult::GraphNode) = BroadcastedOperator(conv, (size(image.output,1) - size(filters.output,1)+1, size(image.output,2) - size(filters.output,2)+1, size(filters.output, 4)), [image::GraphNode, filters::GraphNode, inputResult::GraphNode, filtersResult::GraphNode, outputResult::GraphNode], name="Convolution")
-forward(node::BroadcastedOperator{typeof(conv)}, output, image::Array{Float32, 3}, filters::Array{Float32, 4}, inputResult::Array{Float32, 3}, filtersResult::Array{Float32, 4}, outputResult::Array{Float32,3}) = let
+conv(image::GraphNode, filters::GraphNode, inputResult::GraphNode, filtersResult::GraphNode) = BroadcastedOperator(conv, (size(image.output,1) - size(filters.output,1)+1, size(image.output,2) - size(filters.output,2)+1, size(filters.output, 4)), [image::GraphNode, filters::GraphNode, inputResult::GraphNode, filtersResult::GraphNode], name="Convolution")
+forward(node::BroadcastedOperator{typeof(conv)}, output, image::Array{Float32, 3}, filters::Array{Float32, 4}, inputResult::Array{Float32, 3}, filtersResult::Array{Float32, 4}) = let
     filterHeight, filterWidth, filterChannels, targetChannels = size(filters)
     imageHeight, imageWidth, imageChannels = size(image)
 
@@ -182,7 +192,7 @@ forward(node::BroadcastedOperator{typeof(conv)}, output, image::Array{Float32, 3
     targetHeight = imageHeight - filterHeight + 1
     
     # println("targetWidth: ", targetWidth, " targetHeight: ", targetHeight, " targetChannels: ", targetChannels)
-    fill!(outputResult, 0.0f0)
+    fill!(output, 0.0f0)
     # result = zeros(Float32, targetWidth, targetHeight, targetChannels)
     # println("before filllllll")
     # fill!(node.output, 0.0f0)
@@ -203,14 +213,14 @@ forward(node::BroadcastedOperator{typeof(conv)}, output, image::Array{Float32, 3
         # @time node.output[l,k,i] += c
         # node.output[l,k,i] += image[l+m-1,filterCol+k-1,j]*filters[m,filterCol,j,i]
         # result[l,k,i] += image[l+m-1,filterCol+k-1,j]*filters[m,filterCol,j,i]
-        outputResult[l,k,i] += image[l+m-1,filterCol+k-1,j]*filters[m,filterCol,j,i]
+        output[l,k,i] += image[l+m-1,filterCol+k-1,j]*filters[m,filterCol,j,i]
         # @time result[l,k,i] = result[l,k,i] + c
     end
     # return node.output
     # return result
-    return outputResult
+    return output
 end
-backward(node::BroadcastedOperator{typeof(conv)}, output, image::Array{Float32, 3}, filters::Array{Float32, 4}, inputResult::Array{Float32, 3}, filtersResult::Array{Float32, 4}, outputResult::Array{Float32,3}, g::Array{Float32, 3}) = let
+backward(node::BroadcastedOperator{typeof(conv)}, output, image::Array{Float32, 3}, filters::Array{Float32, 4}, inputResult::Array{Float32, 3}, filtersResult::Array{Float32, 4}, g::Array{Float32, 3}) = let
 
     filterHeight, filterWidth, filterChannels, numberOfFilters = size(filters)
     outputHeight, outputWidth, outputChannels = size(output)
@@ -249,7 +259,7 @@ forward(node::BroadcastedOperator{typeof(maxPool)}, output, input::Array{Float32
     outputWidth = floor(Int32, inputWidth/poolSize[1])
     outputHeight = floor(Int32, inputHeight/poolSize[2])
 
-    output = Array{Float32,3}(undef, outputHeight, outputWidth, inputChannels)
+    # output = Array{Float32,3}(undef, outputHeight, outputWidth, inputChannels)
 
     @inbounds for i in 1:inputChannels
         for k in 1:outputWidth

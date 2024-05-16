@@ -27,8 +27,7 @@ function net(image::Variable, filters1::Variable, filters2::Variable, wages1::Va
         # konwolucja git, jest typu array{float32, 3}
     a_conv_res_input_preallocation = zeros(Float32, 28, 28, 1)
     a_conv_res_filters_preallocation = zeros(Float32, 3, 3, 1, 6)
-    a_conv_output_result_preallocation = zeros(Float32, 26, 26, 6)
-    a = conv(image, filters1, Constant(a_conv_res_input_preallocation), Constant(a_conv_res_filters_preallocation), Constant(a_conv_output_result_preallocation))
+    a = conv(image, filters1, Constant(a_conv_res_input_preallocation), Constant(a_conv_res_filters_preallocation))
     # a.name = "a Convolution"
     # a.output = zeros(Float32, 26, 26, 6)
     a1 = bias(a, bias1)
@@ -43,8 +42,7 @@ function net(image::Variable, filters1::Variable, filters2::Variable, wages1::Va
 
     c_conv_res_input_preallocation = zeros(Float32, 13, 13, 6)
     c_conv_res_filters_preallocation = zeros(Float32, 3, 3, 6, 16)
-    c_conv_output_result_preallocation = zeros(Float32, 11, 11, 16)
-    c = conv(b, filters2, Constant(c_conv_res_input_preallocation), Constant(c_conv_res_filters_preallocation), Constant(c_conv_output_result_preallocation))
+    c = conv(b, filters2, Constant(c_conv_res_input_preallocation), Constant(c_conv_res_filters_preallocation))
     # c.name = "c Convolution"
     # c.output = zeros(Float32, 11, 11, 16)
     c1 = bias(c, bias2)
@@ -56,15 +54,13 @@ function net(image::Variable, filters1::Variable, filters2::Variable, wages1::Va
     # d.name = "d MaxPool"
     e = flatten(d)
     # e.name = "e Flatten"
-    f_preallocated_output = zeros(Float32, 84)
     f_preallocated_A = Constant(zeros(Float32, 400))
     f_preallocated_x = Constant(zeros(Float32, 84, 400))
-    f = dense(wages1, e, bias3, relu, Constant(f_preallocated_output), f_preallocated_x, f_preallocated_A)
+    f = dense(wages1, e, bias3, relu, f_preallocated_x, f_preallocated_A)
     # f.name = "f Dense"
-    g_preallocated_output = zeros(Float32, 10)
     g_preallocated_A = Constant(zeros(Float32, 84))
     g_preallocated_x = Constant(zeros(Float32, 10, 84))
-    g = dense(wages2, f, bias4, softmax, Constant(g_preallocated_output), g_preallocated_x, g_preallocated_A)
+    g = dense(wages2, f, bias4, softmax, g_preallocated_x, g_preallocated_A)
     # g.name = "g Dense"
     loss = cross_entropy(y, g)
     # loss.name = "Loss"
