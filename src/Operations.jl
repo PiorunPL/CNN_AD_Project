@@ -259,15 +259,23 @@ backward(node::BroadcastedOperator{typeof(maxPool)}, input::Array{Float32, 3}, p
     # result = convert(Array{Float32, 3}, result)
     inputWidth,inputHeight,inputChannels = size(input)
     
-    output = node.output
-    outputWidth,outputHeight,outputChannels = size(output)
-
+    # output = node.output
+    outputWidth,outputHeight,outputChannels = size(node.output)
+    
     @inbounds for i in 1:inputChannels
         for k in 1:(outputHeight*2)
             for j in 1:(outputWidth*2)
-                if input[j,k,i] == output[floor(Int,(j-1)/2)+1, floor(Int,(k-1)/2)+1, i]
-                    result[j,k,i] = g[floor(Int,(j-1)/2)+1, floor(Int,(k-1)/2)+1, i]
+                # println("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+                # println("rows")
+                row_number = trunc(Int32,(j-1)/2)+1
+                col_number = trunc(Int32,(k-1)/2)+1
+                # println("iffffffffffffffffff")
+                if input[j,k,i] == node.output[row_number, col_number, i]
+                    # println("insideeeeeeeeeeeeeeeeeeee iffffffffffffffffffff")
+                    result[j,k,i] = g[row_number, col_number, i]
+                    # println("LETS GOOOOOOOOOOOOOOOOOOO")
                 end
+                # println("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")
             end
         end
     end

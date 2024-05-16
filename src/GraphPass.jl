@@ -6,7 +6,7 @@ function forward!(order::Vector)
     # println("=====================================================")
     for node in order
         # if isa(node, Constant)
-        #     continue
+            # continue
         # end
         # println("Node: ", node.name)
         # @time compute!(node)
@@ -28,9 +28,9 @@ function backward!(order::Vector; seed=1.0)
     result.gradient = seed
     @assert length(result.output) == 1 "Gradient is defined only for scalar functions"
     for node in reverse(order)
-        # if isa(node, Constant)
-        #     continue
-        # end
+        if isa(node, Constant)
+            continue
+        end
         # if a == 2
         # println("Node: ", node.name)
         # @time backward!(node)
