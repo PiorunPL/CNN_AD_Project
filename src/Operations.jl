@@ -54,7 +54,11 @@ end
 # Subtraction
 Base.Broadcast.broadcasted(-, x::GraphNode, y::GraphNode) = BroadcastedOperator(-, (size(x.output)), [x::GraphNode, y::GraphNode], name="-")
 forward(::BroadcastedOperator{typeof(-)}, output, x, y) = let
-    return x .- y
+    @inbounds @simd for i in eachindex(output)
+        output[i] = x[i] - y[i]
+    end
+    # return x .- y
+    return output
 end
 backward(::BroadcastedOperator{typeof(-)}, output, x, y, g) = return tuple(g, -g)
 
@@ -89,6 +93,7 @@ end
 import Base: sum
 sum(x::GraphNode) = ScalarOperator(sum, [x::GraphNode], name="sum")
 forward(::ScalarOperator{typeof(sum)}, output, x::Vector{Float32}) = let
+    # output = sum(x)
     return sum(x)
 end
 backward(::ScalarOperator{typeof(sum)}, output, x::Vector{Float32}, g) = let
@@ -116,18 +121,17 @@ forward(::BroadcastedOperator{typeof(max)}, output, x, y) = let
     # if isa(y, Float64)
     #     y = convert(Float32, y)
     # end
-    @inbounds @simd for i in eachindex(output)
-        output[i] = max(x[i], y[i])
+     @simd for i in eachindex(output)
+        output[i] = max(x[i], y)
     end
     return output
 end
 backward(::BroadcastedOperator{typeof(max)}, output, x, y, g) = let
-    if isa(y, Float64)
-        y = convert(Float32, y)
-    end
+    # if isa(y, Float64)
+    #     y = convert(Float32, y)
+    # end
     Jx = isless.(y,x)
-    Jy = isless.(x,y)
-    tuple(Jx .* g, Jy .* g)
+    tuple(Jx .* g, 0.0f0)
 end
 
 # Max
@@ -258,15 +262,26 @@ forward(node::BroadcastedOperator{typeof(maxPool)}, output, input::Array{Float32
 
     outputWidth = floor(Int32, inputWidth/poolSize[1])
     outputHeight = floor(Int32, inputHeight/poolSize[2])
-
+    fill!(output, -Inf)
     # output = Array{Float32,3}(undef, outputHeight, outputWidth, inputChannels)
 
-    @inbounds for i in 1:inputChannels
-        for k in 1:outputWidth
-            for j in 1:outputHeight
-                output[j,k,i] = maximum(@view input[(2*j-1):(2*j-1+poolSize[1]-1),(2*k-1):(2*k-1+poolSize[2]-1), i])
+    # @inbounds for i in 1:inputChannels
+    #     for k in 1:outputWidth
+    #         for j in 1:outputHeight
+    #             output[j,k,i] = maximum(@view input[(2*j-1):(2*j-1+poolSize[1]-1),(2*k-1):(2*k-1+poolSize[2]-1), i])
+    #         end
+    #     end
+    # end
+    @inbounds for i in 1:inputChannels,
+        k in 1:outputWidth*2,
+        j in 1:outputHeight*2
+            row = trunc(Int32,(j+1)/2)
+            col = trunc(Int32,(k+1)/2)
+            if(output[row,col,i] < input[j,k,i])
+                output[row,col,i] = input[j,k,i]
             end
-        end
+            # output[row,col,i] = input[j,k,i]
+            # output[j,k,i] = maximum(@view input[(2*j-1):(2*j-1+poolSize[1]-1),(2*k-1):(2*k-1+poolSize[2]-1), i])
     end
     return output
 end

@@ -1,5 +1,5 @@
 # ReLU
-function relu(x::BroadcastedOperator) return max.(x, Constant(0.0f0)) end
+function relu(x) return max.(x, Constant(0.0f0)) end
 
 # # Sigmoid σ
 # sigmoid(x::GraphNode) = BroadcastedOperator(sigmoid, x::BroadcastedOperator)
