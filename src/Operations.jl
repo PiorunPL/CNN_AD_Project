@@ -170,8 +170,8 @@ end
 # Needed for Convolution implementation
 ############################################################################
 # Convolution
-conv(image::GraphNode, filters::GraphNode) = BroadcastedOperator(conv, (size(image.output,1) - size(filters.output,1)+1, size(image.output,2) - size(filters.output,2)+1, size(filters.output, 4)), [image::GraphNode, filters::GraphNode], name="Convolution")
-forward(node::BroadcastedOperator{typeof(conv)}, image::Array{Float32, 3}, filters::Array{Float32, 4}) = let
+conv(image::GraphNode, filters::GraphNode, inputResult::GraphNode, filtersResult::GraphNode, outputResult::GraphNode) = BroadcastedOperator(conv, (size(image.output,1) - size(filters.output,1)+1, size(image.output,2) - size(filters.output,2)+1, size(filters.output, 4)), [image::GraphNode, filters::GraphNode, inputResult::GraphNode, filtersResult::GraphNode, outputResult::GraphNode], name="Convolution")
+forward(node::BroadcastedOperator{typeof(conv)}, image::Array{Float32, 3}, filters::Array{Float32, 4}, inputResult::Array{Float32, 3}, filtersResult::Array{Float32, 4}, outputResult::Array{Float32,3}) = let
     filterHeight, filterWidth, filterChannels, targetChannels = size(filters)
     imageHeight, imageWidth, imageChannels = size(image)
 
@@ -179,8 +179,8 @@ forward(node::BroadcastedOperator{typeof(conv)}, image::Array{Float32, 3}, filte
     targetHeight = imageHeight - filterHeight + 1
     
     # println("targetWidth: ", targetWidth, " targetHeight: ", targetHeight, " targetChannels: ", targetChannels)
-   
-    result = zeros(Float32, targetWidth, targetHeight, targetChannels)
+    fill!(outputResult, 0.0f0)
+    # result = zeros(Float32, targetWidth, targetHeight, targetChannels)
     # println("before filllllll")
     # fill!(node.output, 0.0f0)
     # @time result = node.output
@@ -198,19 +198,21 @@ forward(node::BroadcastedOperator{typeof(conv)}, image::Array{Float32, 3}, filte
         # println("typeof b ", typeof(b))
         # println("typeof c ", typeof(c))
         # @time node.output[l,k,i] += c
-        # node.output[l,k,i] = image[l+m-1,filterCol+k-1,j]*filters[m,filterCol,j,i]
-        result[l,k,i] += image[l+m-1,filterCol+k-1,j]*filters[m,filterCol,j,i]
+        # node.output[l,k,i] += image[l+m-1,filterCol+k-1,j]*filters[m,filterCol,j,i]
+        # result[l,k,i] += image[l+m-1,filterCol+k-1,j]*filters[m,filterCol,j,i]
+        outputResult[l,k,i] += image[l+m-1,filterCol+k-1,j]*filters[m,filterCol,j,i]
         # @time result[l,k,i] = result[l,k,i] + c
     end
     # return node.output
-    return result
+    # return result
+    return outputResult
 end
-backward(node::BroadcastedOperator{typeof(conv)}, image::Array{Float32, 3}, filters::Array{Float32, 4}, g::Array{Float32, 3}) = let
+backward(node::BroadcastedOperator{typeof(conv)}, image::Array{Float32, 3}, filters::Array{Float32, 4}, inputResult::Array{Float32, 3}, filtersResult::Array{Float32, 4}, outputResult::Array{Float32,3}, g::Array{Float32, 3}) = let
 
     filterHeight, filterWidth, filterChannels, numberOfFilters = size(filters)
     outputHeight, outputWidth, outputChannels = size(node.output)
 
-    filtersResult = zeros(Float32, size(filters))
+    fill!(filtersResult, 0.0f0)
     # @inbounds for l in 1:numberOfFilters,
     #    k in 1:filterChannels,
     #    i in 1:filterWidth,
@@ -220,7 +222,8 @@ backward(node::BroadcastedOperator{typeof(conv)}, image::Array{Float32, 3}, filt
     #        filtersResult[j,i,k,l] += image[j+n-1,i+m-1,k]*g[n,m,l]
     # end
 
-    inputResult = zeros(Float32, size(image))
+    fill!(inputResult, 0.0f0)
+    # inputResult = zeros(Float32, size(image))
 
     @inbounds for i in 1:outputChannels,
         l in 1:filterChannels,
@@ -232,12 +235,12 @@ backward(node::BroadcastedOperator{typeof(conv)}, image::Array{Float32, 3}, filt
             inputResult[m+n-1,k+filterCol-1,l] += filters[n,filterCol,l,i] * g[m,k,i]    
     end
 
-    return tuple(inputResult, filtersResult)
+    return tuple(inputResult, filtersResult, 0.0f0, 0.0f0)
 end
 
 #MaxPool
-maxPool(input::GraphNode, poolSize::GraphNode) = BroadcastedOperator(maxPool, (floor(Int32, size(input.output,1)/poolSize.output[1]), floor(Int32, size(input.output,2)/poolSize.output[2]), size(input.output,3)), [input::GraphNode, poolSize::Constant], name="Max Pool")
-forward(node::BroadcastedOperator{typeof(maxPool)}, input::Array{Float32, 3}, poolSize::Vector{Int64}) = let
+maxPool(input::GraphNode, poolSize::GraphNode, res::Constant) = BroadcastedOperator(maxPool, (floor(Int32, size(input.output,1)/poolSize.output[1]), floor(Int32, size(input.output,2)/poolSize.output[2]), size(input.output,3)), [input::GraphNode, poolSize::Constant, res::Constant], name="Max Pool")
+forward(node::BroadcastedOperator{typeof(maxPool)}, input::Array{Float32, 3}, poolSize::Vector{Int64}, res::Array{Float32, 3}) = let
     inputHeight, inputWidth, inputChannels = size(input)
 
     outputWidth = floor(Int32, inputWidth/poolSize[1])
@@ -254,8 +257,9 @@ forward(node::BroadcastedOperator{typeof(maxPool)}, input::Array{Float32, 3}, po
     end
     return output
 end
-backward(node::BroadcastedOperator{typeof(maxPool)}, input::Array{Float32, 3}, poolSize::Vector{Int64}, g::Array{Float32, 3}) = let
-    result = zeros(Float32, size(input))
+backward(node::BroadcastedOperator{typeof(maxPool)}, input::Array{Float32, 3}, poolSize::Vector{Int64}, res::Array{Float32, 3}, g::Array{Float32, 3}) = let
+    # result = zeros(Float32, size(input))
+    res = fill!(res, 0.0f0)
     # result = convert(Array{Float32, 3}, result)
     inputWidth,inputHeight,inputChannels = size(input)
     
@@ -272,14 +276,14 @@ backward(node::BroadcastedOperator{typeof(maxPool)}, input::Array{Float32, 3}, p
                 # println("iffffffffffffffffff")
                 if input[j,k,i] == node.output[row_number, col_number, i]
                     # println("insideeeeeeeeeeeeeeeeeeee iffffffffffffffffffff")
-                    result[j,k,i] = g[row_number, col_number, i]
+                    res[j,k,i] = g[row_number, col_number, i]
                     # println("LETS GOOOOOOOOOOOOOOOOOOO")
                 end
                 # println("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")
             end
         end
     end
-    return tuple(result, 0.0f0)
+    return tuple(res, 0.0f0, 0.0f0)
 end
 
 #Flatten

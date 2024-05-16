@@ -24,35 +24,43 @@ Random.seed!(2222)
 function net(image::Variable, filters1::Variable, filters2::Variable, wages1::Variable, wages2::Variable, y::Variable, 
         bias1::Variable, bias2::Variable, bias3::Variable, bias4::Variable)
         # konwolucja git, jest typu array{float32, 3}
-    a = conv(image, filters1)
-    a.name = "a Convolution"
+    a_conv_res_input_preallocation = zeros(Float32, 28, 28, 1)
+    a_conv_res_filters_preallocation = zeros(Float32, 3, 3, 1, 6)
+    a_conv_output_result_preallocation = zeros(Float32, 26, 26, 6)
+    a = conv(image, filters1, Constant(a_conv_res_input_preallocation), Constant(a_conv_res_filters_preallocation), Constant(a_conv_output_result_preallocation))
+    # a.name = "a Convolution"
     # a.output = zeros(Float32, 26, 26, 6)
     a1 = bias(a, bias1)
-    a1.name = "a1 Bias"
+    # a1.name = "a1 Bias"
     # relu chyba ok
     a2 = relu(a1)
-    a2.name = "a2 ReLU"
+    # a2.name = "a2 ReLU"
     # maxpool chyab ok
-    b = maxPool(a2, Constant([2,2]))
+    b_max_pool_res_preallocation = zeros(Float32, 26, 26, 6)
+    b = maxPool(a2, Constant([2,2]), Constant(b_max_pool_res_preallocation))
+    # b.name = "b MaxPool"
 
-    b.name = "b MaxPool"
-    c = conv(b, filters2)
-    c.name = "c Convolution"
+    c_conv_res_input_preallocation = zeros(Float32, 13, 13, 6)
+    c_conv_res_filters_preallocation = zeros(Float32, 3, 3, 6, 16)
+    c_conv_output_result_preallocation = zeros(Float32, 11, 11, 16)
+    c = conv(b, filters2, Constant(c_conv_res_input_preallocation), Constant(c_conv_res_filters_preallocation), Constant(c_conv_output_result_preallocation))
+    # c.name = "c Convolution"
     # c.output = zeros(Float32, 11, 11, 16)
     c1 = bias(c, bias2)
-    c1.name = "c1 Bias"
+    # c1.name = "c1 Bias"
     c2 = relu(c1)
-    c2.name = "c2 ReLU"
-    d = maxPool(c2, Constant([2,2]))
-    d.name = "d MaxPool"
+    # c2.name = "c2 ReLU"
+    d_max_pool_res_preallocation = zeros(Float32, 11, 11, 16)
+    d = maxPool(c2, Constant([2,2]), Constant(d_max_pool_res_preallocation))
+    # d.name = "d MaxPool"
     e = flatten(d)
-    e.name = "e Flatten"
+    # e.name = "e Flatten"
     f = dense(wages1, e, bias3, relu)
-    f.name = "f Dense"
+    # f.name = "f Dense"
     g = dense(wages2, f, bias4, softmax)
-    g.name = "g Dense"
+    # g.name = "g Dense"
     loss = cross_entropy(y, g)
-    loss.name = "Loss"
+    # loss.name = "Loss"
     return tuple(topological_sort(loss), topological_sort(g))
 end
 
