@@ -17,26 +17,21 @@ include("../LossFunctions.jl")
 include("../Operations.jl")
 include("../WeightInit.jl")
 include("../NetworkOperations.jl")
-Random.seed!(2222)
 
 # logger = SimpleLogger(open("./logs/log_finalNetwork_1.txt", "w+"))
 # global_logger(logger)
 
 function net(image::Variable, filters1::Variable, filters2::Variable, wages1::Variable, wages2::Variable, y::Variable, 
         bias1::Variable, bias2::Variable, bias3::Variable, bias4::Variable)
-        # konwolucja git, jest typu array{float32, 3}
     a_conv_res_input_preallocation = zeros(Float32, 28, 28, 1)
     a_conv_res_filters_preallocation = zeros(Float32, 3, 3, 1, 6)
     a = conv(image, filters1, Constant(a_conv_res_input_preallocation), Constant(a_conv_res_filters_preallocation))
     a.name = "a Convolution"
-    # a.output = zeros(Float32, 26, 26, 6)
     a1 = bias(a, bias1)
     a1.name = "a1 Bias"
-    # relu chyba ok
     a2_preallocated = Constant(zeros(Float32, 26, 26, 6))
     a2 = relu(a1, a2_preallocated)
     a2.name = "a2 ReLU"
-    # maxpool chyab ok
     b_max_pool_res_preallocation = zeros(Float32, 26, 26, 6)
     b = maxPool(a2, Constant([2,2]), Constant(b_max_pool_res_preallocation))
     b.name = "b MaxPool"
@@ -45,7 +40,6 @@ function net(image::Variable, filters1::Variable, filters2::Variable, wages1::Va
     c_conv_res_filters_preallocation = zeros(Float32, 3, 3, 6, 16)
     c = conv(b, filters2, Constant(c_conv_res_input_preallocation), Constant(c_conv_res_filters_preallocation))
     c.name = "c Convolution"
-    # c.output = zeros(Float32, 11, 11, 16)
     c1 = bias(c, bias2)
     c1.name = "c1 Bias"
     c_relu_preallocated = Constant(zeros(Float32, 11, 11, 16))
@@ -72,7 +66,6 @@ function net(image::Variable, filters1::Variable, filters2::Variable, wages1::Va
 end
 
 function main()
-
     image = Variable(Array{Float32, 3}(undef,28,28,1), name="Image")
     filters1 = Variable(glorot_uniform(3,3,1,6,Int32(3*3*1)), name="Filters1")
     filters2 = Variable(glorot_uniform(3,3,6,16,Int32(3*3*6)), name="Filters2")
@@ -83,18 +76,6 @@ function main()
     bias2 = Variable(glorot_uniform(11,11,16,Int32(11*11*16)), name="Bias 2")
     bias3 = Variable(glorot_uniform(84, Int32(84)), name="Bias 3")
     bias4 = Variable(glorot_uniform(10, Int32(10)), name="Bias 4")
-
-    # println("typeof image", typeof(image.output))
-    # println("typeof filters1", typeof(filters1.output))
-    # println("typeof filters2", typeof(filters2.output))
-    # println("typeof wages1", typeof(wages1.output))
-    # println("typeof wages2", typeof(wages2.output))
-    # println("typeof y", typeof(y.output))
-    # println("typeof bias1", typeof(bias1.output))
-    # println("typeof bias2", typeof(bias2.output))
-    # println("typeof bias3", typeof(bias3.output))
-    # println("typeof bias4", typeof(bias4.output))
-    
 
     var_array = Variable[filters1, filters2, wages1, wages2, bias1, bias2, bias3, bias4]
 
@@ -123,13 +104,15 @@ function main()
 
     expectedOutput = Array{Float32}(undef,10)
     for j in 1:epochs
-        @time @showprogress for i in 1:numberOfBatchesInEpoch
+        # @time @showprogress for i in 1:numberOfBatchesInEpoch
+        @time for i in 1:numberOfBatchesInEpoch
         # @showprogress for i in 1:epochs
         #     @info("
         # --------------------------------------------------------------
         # Starting epoch $i
         # --------------------------------------------------------------")
             currentloss = batch_process(graph,trainData[(i-1)*batchsize+1:i*batchsize], image, y, expectedOutput)
+            push!(losses, currentloss)
             batch_update!(var_array, step, batchsize)
 
             reset!(graph)
@@ -138,19 +121,11 @@ function main()
         # println("Loss: ", currentloss)
         println("Accuracy: ", accuracy)
         push!(accuracyArray, accuracy)
-        # push!(losses, currentloss)
         shuffle!(trainData)
     end
 
-    # pushKittyDisplay!()
-
     plot(1:length(losses), losses, seriestype=:scatter)
     plot(1:length(accuracyArray), accuracyArray, seriestype=:scatter)
-
-    image.output = trainDataset.features[:,:,40003]
-    image.output = reshape(image.output, 28, 28, 1)
-    display(forward!(test))
 end
 
-# @profview main()
-main()
+@time main()
