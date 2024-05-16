@@ -206,31 +206,32 @@ forward(node::BroadcastedOperator{typeof(conv)}, image::Array{Float32, 3}, filte
     return result
 end
 backward(node::BroadcastedOperator{typeof(conv)}, image::Array{Float32, 3}, filters::Array{Float32, 4}, g::Array{Float32, 3}) = let
-    filtersResult = Array{Float32,4}(undef, size(filters))
+    # filtersResult = Array{Float32,4}(undef, size(filters))
 
     filterHeight, filterWidth, filterChannels, numberOfFilters = size(filters)
     outputHeight, outputWidth, outputChannels = size(node.output)
     imageHeight, imageWidth, imageChannels = size(image)
 
-    @inbounds @views for n in 1:numberOfFilters
-        glayer=g[:,:,n]
-        @inbounds for i in 1:filterChannels
-            @inbounds for k in 1:filterWidth
-                @inbounds  for j in 1:filterHeight
-                    filtersResult[j,k,i,n] = sum(image[j:(j+outputWidth - 1),k:(k+outputHeight-1), i].*glayer)
-                end
-            end
-        end
-    end
-
-    # for l in 1:numberOfFilters,
-    #    k in 1:filterChannels,
-    #    i in 1:filterWidth,
-    #    m in 1:outputWidth,
-    #    j in 1:filterHeight,
-    #    n in 1:outputHeight
-    #        filtersResult[j,i,k,l] += image[j+n-1,i+m-1,k]*g[n,m,l]
+    # @inbounds @views for n in 1:numberOfFilters
+    #     glayer=g[:,:,n]
+    #     @inbounds for i in 1:filterChannels
+    #         @inbounds for k in 1:filterWidth
+    #             @inbounds  for j in 1:filterHeight
+    #                 filtersResult[j,k,i,n] = sum(image[j:(j+outputWidth - 1),k:(k+outputHeight-1), i].*glayer)
+    #             end
+    #         end
+    #     end
     # end
+    
+    filtersResult = zeros(Float32, size(filters))
+    for l in 1:numberOfFilters,
+       k in 1:filterChannels,
+       i in 1:filterWidth,
+       m in 1:outputWidth,
+       j in 1:filterHeight,
+       n in 1:outputHeight
+           filtersResult[j,i,k,l] += image[j+n-1,i+m-1,k]*g[n,m,l]
+    end
 
     # @time for k in 1:filterChannels,
     #     i in 1:filterWidth,
@@ -241,7 +242,7 @@ backward(node::BroadcastedOperator{typeof(conv)}, image::Array{Float32, 3}, filt
     #        filtersResult[j,i,k,l] += image[j+n-1,i+m-1,k]*g[n,m,l]
     # end
 
-    # inputResult = zeros(Float64, size(image))
+    inputResult = zeros(Float32, size(image))
 
     # @inbounds for i in 1:targetChannels,
     #     j in 1:imageChannels,
@@ -251,44 +252,44 @@ backward(node::BroadcastedOperator{typeof(conv)}, image::Array{Float32, 3}, filt
     #     m in 1:filterHeight
     #         result[l,k,i] += image[l+m-1,filterCol+k-1,j]*filters[m,filterCol,j,i]
     # end
-    # @inbounds for i in 1:outputChannels,
-    #     l in 1:imageChannels,
-    #     filterCol in 1:filterWidth,
-    #     k in 1:outputWidth,
-    #     m in 1:outputHeight,
-    #     n in 1:filterHeight
-    #         # filtersResult[n,filterCol,l,i] += image[m+n-1,filterCol+k-1,l]*g[m,k,i]
-    #         inputResult[m+n-1,k+filterCol-1,l] += filters[n,filterCol,l,i] * g[m,k,i]    
+    @inbounds for i in 1:outputChannels,
+        l in 1:imageChannels,
+        filterCol in 1:filterWidth,
+        k in 1:outputWidth,
+        m in 1:outputHeight,
+        n in 1:filterHeight
+            # filtersResult[n,filterCol,l,i] += image[m+n-1,filterCol+k-1,l]*g[m,k,i]
+            inputResult[m+n-1,k+filterCol-1,l] += filters[n,filterCol,l,i] * g[m,k,i]    
+    end
+
+    # reversedFilters = @view filters[end:-1:1, end:-1:1, :, :] 
+    # g_extended = zeros(2*(filterWidth-1)+outputWidth, 2*(filterHeight-1)+outputHeight, numberOfFilters)
+    # g_extended[filterWidth:(filterWidth+outputWidth-1), filterHeight:(filterHeight+outputHeight-1),:] = g
+    
+    # inputWidth = length(@view image[:,1,1])
+    # inputHeight = length(@view image[1,:,1])
+
+
+    # # Prepare refersed filters matrices
+    # filtersToCalculate = Array{Float32,4}(undef,filterWidth, filterHeight, outputChannels, filterChannels)
+    # @inbounds for i in 1:filterChannels
+    #     @inbounds for j in 1:outputChannels
+    #         filtersToCalculate[:,:,j,i] = @view reversedFilters[:,:,i,j]
+    #     end
     # end
 
-    reversedFilters = @view filters[end:-1:1, end:-1:1, :, :] 
-    g_extended = zeros(2*(filterWidth-1)+outputWidth, 2*(filterHeight-1)+outputHeight, numberOfFilters)
-    g_extended[filterWidth:(filterWidth+outputWidth-1), filterHeight:(filterHeight+outputHeight-1),:] = g
-    
-    inputWidth = length(@view image[:,1,1])
-    inputHeight = length(@view image[1,:,1])
+    # inputResult = Array{Float32,3}(undef, size(image))
 
-
-    # Prepare refersed filters matrices
-    filtersToCalculate = Array{Float32,4}(undef,filterWidth, filterHeight, outputChannels, filterChannels)
-    @inbounds for i in 1:filterChannels
-        @inbounds for j in 1:outputChannels
-            filtersToCalculate[:,:,j,i] = @view reversedFilters[:,:,i,j]
-        end
-    end
-
-    inputResult = Array{Float32,3}(undef, size(image))
-
-    # Tensors multiplication and addition for each element in image
-    @inbounds @views for i in 1:filterChannels
-        filterCalc = filtersToCalculate[:,:,:,i]
-        @inbounds for j in 1:inputWidth
-            jCalc = (j+filterWidth-1)
-            @inbounds @views for k in 1:inputHeight
-                inputResult[k,j,i] = sum(g_extended[k:(k+filterHeight-1),j:jCalc, :].*filterCalc)
-            end
-        end
-    end
+    # # Tensors multiplication and addition for each element in image
+    # @inbounds @views for i in 1:filterChannels
+    #     filterCalc = filtersToCalculate[:,:,:,i]
+    #     @inbounds for j in 1:inputWidth
+    #         jCalc = (j+filterWidth-1)
+    #         @inbounds @views for k in 1:inputHeight
+    #             inputResult[k,j,i] = sum(g_extended[k:(k+filterHeight-1),j:jCalc, :].*filterCalc)
+    #         end
+    #     end
+    # end
 
     # println("typeof inputResult ", typeof(inputResult))
     # println("typeof filtersResult ", typeof(filtersResult))

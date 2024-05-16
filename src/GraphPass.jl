@@ -69,12 +69,12 @@ function reset!(order::Vector)
 end
 
 reset!(node::Constant) = nothing
-reset!(node::Variable) = node.gradient = zeros(Float32, size(node.gradient))
-reset!(node::Operator) = node.gradient = isa(node.gradient, Float32) ? 0.0f0 : zeros(Float32, size(node.gradient))#fill!(node.gradient, 0.0f0)
+reset!(node::Variable) = fill!(node.gradient, 0.0f0)#node.gradient = zeros(Float32, size(node.gradient))
+reset!(node::Operator) = node.gradient = isa(node.gradient, Float32) ? 0.0f0 : fill!(node.gradient, 0.0f0)#fill!(node.gradient, 0.0f0)#
 
 reset_forward!(node::Constant) = nothing
 reset_forward!(node::Variable) = nothing
-reset_forward!(node::Operator) = node.gradient = isa(node.gradient, Float32) ? 0.0f0 : zeros(Float32, size(node.gradient))#fill!(node.gradient, 0.0f0)
+reset_forward!(node::Operator) = node.gradient = isa(node.gradient, Float32) ? 0.0f0 : fill!(node.gradient, 0.0f0)#fill!(node.gradient, 0.0f0)#
 
 # Base.fill!(x::Float32, y::Float32) = x = y
 
