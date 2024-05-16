@@ -19,24 +19,21 @@ backward(::ScalarOperator{typeof(*)}, x, y, g) = return tuple(y * g, x * g)
 
 
 # Multiplication
-mul(A::GraphNode, x::GraphNode) = BroadcastedOperator(mul!,size(x.output,2) == 1 ? (size(A.output,1)) : (size(A.output,1), size(x.output,2)), [A, x], name="mul!")
-forward(::BroadcastedOperator{typeof(mul!)}, A, x) = let 
-    result = A * x
-    if isa(result, Float64)
-        # print("result is Float64")
-        # print(typeof(A))
-        # print(typeof(x))
-        result = convert(Float32, result)
-    end
-    # println("result is ", typeof(result))
-    return result
+mul(A::GraphNode, x::GraphNode, preallocated_result::Constant, preallocated_A::Constant, preallocated_x::Constant) = BroadcastedOperator(mul!,size(x.output,2) == 1 ? (size(A.output,1)) : (size(A.output,1), size(x.output,2)), [A, x, preallocated_result, preallocated_A, preallocated_x], name="mul!")
+forward(::BroadcastedOperator{typeof(mul!)}, A, x, preallocated_result, preallocated_A, preallocated_x) = let 
+    mul!(preallocated_result, A, x)
+    # if isa(result, Float64)
+    #     result = convert(Float32, result)
+    # end
+    return preallocated_result
 end
-backward(::BroadcastedOperator{typeof(mul!)}, A, x, g) = let
-    # println("A:", A)
-    # println("x:", x)
-    # println("g:", g)
-    # println("result:", tuple(g * x', A' * g))
-    tuple(g * x', A' * g)
+backward(::BroadcastedOperator{typeof(mul!)}, A, x, preallocated_result, preallocated_A, preallocated_x, g) = let
+    # println("size of g: ", size(g))
+    # println("size of A: ", size(A))
+    # println("size of x: ", size(x))
+    mul!(preallocated_A, g, x')
+    mul!(preallocated_x, A', g)
+    tuple(preallocated_A, preallocated_x, 0.0f0, 0.0f0, 0.0f0)
 end
 
 Base.Broadcast.broadcasted(*, x::GraphNode, y::GraphNode) = BroadcastedOperator(*, (size(x.output)), [x::GraphNode, y::GraphNode], name="*")

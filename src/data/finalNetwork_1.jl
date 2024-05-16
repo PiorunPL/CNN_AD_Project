@@ -55,9 +55,15 @@ function net(image::Variable, filters1::Variable, filters2::Variable, wages1::Va
     # d.name = "d MaxPool"
     e = flatten(d)
     # e.name = "e Flatten"
-    f = dense(wages1, e, bias3, relu)
+    f_preallocated_output = zeros(Float32, 84)
+    f_preallocated_A = Constant(zeros(Float32, 400))
+    f_preallocated_x = Constant(zeros(Float32, 84, 400))
+    f = dense(wages1, e, bias3, relu, Constant(f_preallocated_output), f_preallocated_x, f_preallocated_A)
     # f.name = "f Dense"
-    g = dense(wages2, f, bias4, softmax)
+    g_preallocated_output = zeros(Float32, 10)
+    g_preallocated_A = Constant(zeros(Float32, 84))
+    g_preallocated_x = Constant(zeros(Float32, 10, 84))
+    g = dense(wages2, f, bias4, softmax, Constant(g_preallocated_output), g_preallocated_x, g_preallocated_A)
     # g.name = "g Dense"
     loss = cross_entropy(y, g)
     # loss.name = "Loss"
@@ -118,16 +124,16 @@ function main()
 
     @time @showprogress for i in 1:epochs
     # @showprogress for i in 1:epochs
-        @info("
-    --------------------------------------------------------------
-    Starting epoch $i
-    --------------------------------------------------------------")
+    #     @info("
+    # --------------------------------------------------------------
+    # Starting epoch $i
+    # --------------------------------------------------------------")
         currentloss = batch_process(graph,trainData[(i-1)*batchsize+1:i*batchsize], image, y, expectedOutput)
         batch_update!(var_array, step, batchsize)
 
         accuracy = testNetwork(testData, test,testBatchSize, image, y)
-        # println("Loss: ", currentloss)
-        # println("Accuracy: ", accuracy)
+        println("Loss: ", currentloss)
+        println("Accuracy: ", accuracy)
         push!(accuracyArray, accuracy)
         push!(losses, currentloss)
         reset!(graph)
