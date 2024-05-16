@@ -13,7 +13,7 @@ function relu(x::BroadcastedOperator) return max.(x, Constant(0.0f0)) end
 
 # Softmax
 softmax(x::GraphNode) = BroadcastedOperator(softmax, size(x.output), [x::GraphNode])
-forward(::BroadcastedOperator{typeof(softmax)}, x::Vector{Float32}) = let
+forward(::BroadcastedOperator{typeof(softmax)}, output, x::Vector{Float32}) = let
     # println("typeof x: ", typeof(x))
     # println("typeof exp.(x): ", typeof(exp.(x)))
     # println("typeof sum(exp.(x)): ", typeof(sum(exp.(x))))

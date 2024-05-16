@@ -5,9 +5,9 @@ function forward!(order::Vector)
     # println("=====================================================")
     # println("=====================================================")
     for node in order
-        # if isa(node, Constant)
-            # continue
-        # end
+        if isa(node, Constant)
+            continue
+        end
         # println("Node: ", node.name)
         # @time compute!(node)
         compute!(node)
@@ -35,7 +35,7 @@ function backward!(order::Vector; seed=1.0)
         # println("Node: ", node.name)
         # @time backward!(node)
         # else
-        # backward!(node)
+        backward!(node)
         # end
     end
     # a = a + 1
@@ -81,7 +81,7 @@ reset_forward!(node::Operator) = node.gradient = isa(node.gradient, Float32) ? 0
 compute!(node::Constant) = nothing
 compute!(node::Variable) = nothing
 compute!(node::Operator) = let 
-    node.output = forward(node, [input.output for input in node.inputs]...)
+    node.output = forward(node, node.output, [input.output for input in node.inputs]...)
 end
 update_graph!(node::Constant, gradient) = nothing
 update_graph!(node::GraphNode, gradient) = let
